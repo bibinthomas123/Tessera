@@ -1,0 +1,83 @@
+image:
+  repository: ghcr.io/bibinthomas123/tessera
+  tag: ""                # defaults to .Chart.AppVersion
+  pullPolicy: IfNotPresent
+
+# PostgreSQL is external: provide TESSERA_DATABASE_URL (and any credentials) in a Secret.
+existingSecret: tessera-secrets   # keys: TESSERA_DATABASE_URL, optional GCN_CLIENT_ID, GCN_CLIENT_SECRET,
+                                  # TESSERA_LCO_TOKEN, TESSERA_TREASUREMAP_TOKEN
+
+config:
+  mode: production
+  defaultCatalog: ""
+  rootPath: ""
+  trustedProxies: ""        # CIDRs of the gateway allowed to forward X-Tessera-User / X-Tessera-Scopes
+  maxQueueDepth: 50
+  maxJobsPerKey: 4
+  jobTimeoutS: 300
+  jobMemoryBytes: 4294967296
+  logLevel: INFO
+  oidc:
+    issuer: ""             # enables in-process OIDC token validation when set with audience
+    audience: ""
+    jwksUrl: ""
+    scopesClaim: scope
+    userClaim: preferred_username
+  triggerPolicy: |
+    require_significant: true
+    alert_types: [PRELIMINARY, INITIAL, UPDATE]
+    rules: []
+
+persistence:
+  data:                    # artifacts and uploaded profiles; shared by api and workers
+    existingClaim: ""
+    size: 50Gi
+    accessModes: [ReadWriteMany]
+    storageClass: ""
+  catalogs:                # catalog snapshots, mounted read-only
+    existingClaim: ""
+    size: 20Gi
+    accessModes: [ReadOnlyMany]
+    storageClass: ""
+
+api:
+  replicas: 2
+  port: 8000
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+worker:
+  replicas: 2
+  metricsPort: 9101
+  resources:
+    requests: {cpu: "1", memory: 2Gi}
+    limits: {cpu: "4", memory: 6Gi}
+
+listener:
+  enabled: true
+  source: gcn              # gcn | scimma | dir
+  resources:
+    requests: {cpu: 50m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+ingress:
+  enabled: false
+  className: ""
+  host: tessera.example.org
+  annotations: {}
+  tls: []
+
+networkPolicy:
+  enabled: true            # workers accept no inbound traffic except metrics scraping
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+  seccompProfile: {type: RuntimeDefault}
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities: {drop: [ALL]}

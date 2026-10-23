@@ -1,0 +1,26 @@
+{{- if .Values.networkPolicy.enabled }}
+# Workers parse untrusted FITS files: no inbound traffic except metrics scraping, and egress only
+# to DNS and the database/storage the cluster provides (spec 10.3).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tessera.fullname" . }}-worker
+  labels: {{- include "tessera.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "tessera.selector" (dict "root" . "component" "worker") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - ports: [{port: {{ .Values.worker.metricsPort }}, protocol: TCP}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "tessera.fullname" . }}-listener
+  labels: {{- include "tessera.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "tessera.selector" (dict "root" . "component" "listener") | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress: []
+{{- end }}

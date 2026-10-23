@@ -1,0 +1,36 @@
+# Credentials come from an untracked .env file (copy .env.example to .env and fill it in).
+# Compose refuses to start if POSTGRES_PASSWORD is unset, so no default password exists.
+x-tessera: &tessera
+  build: .
+  environment:
+    TESSERA_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-tessera}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres/${POSTGRES_DB:-tessera}
+    TESSERA_DATA_DIR: /data
+    TESSERA_CATALOG_DIRS: /catalogs
+    TESSERA_DEFAULT_CATALOG: ${TESSERA_DEFAULT_CATALOG:-}
+  volumes:
+    - tessera-data:/data
+    - ./catalogs:/catalogs:ro
+  depends_on: [postgres]
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-tessera}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-tessera}
+    volumes: [pg-data:/var/lib/postgresql/data]
+  api:
+    <<: *tessera
+    command: ["tessera", "serve", "--host", "0.0.0.0", "--port", "8000"]
+    ports: ["8000:8000"]
+  worker:
+    <<: *tessera
+    command: ["tessera", "worker"]
+  listener:
+    <<: *tessera
+    command: ["tessera", "listen", "--source", "dir", "--path", "/data/alerts"]
+
+volumes:
+  tessera-data:
+  pg-data:

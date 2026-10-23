@@ -1,0 +1,22 @@
+# ILLUSTRATIVE wide-field northern survey camera (Palomar-like site), used to
+# exercise the tiling path and multi-telescope coordination.  Not a facility profile.
+schema: tessera.telescope/1
+id: example-wide-north
+version: 1
+description: "Illustrative 7x7 deg wide-field camera at a northern site (not a real facility profile)"
+validation: {level: community, overheads: approximate, notes: "illustrative values only"}
+site: {name: "Palomar (illustrative)", lat_deg: 33.3563, lon_deg: -116.8648, elevation_m: 1712, timezone: America/Los_Angeles}
+mount: {type: equatorial, ha_limits_h: [-6, 6], dec_limits_deg: [-31, 90], park: {ha_h: 0, dec_deg: 33}}
+slew: {rate_dps: 2.5, constant_s: 5, settle_s: 5, acquisition_s: 0}
+instrument:
+  footprint: {kind: rect, width_deg: 7.0, height_deg: 7.0, pa_deg: [0]}
+  readout_s: 10
+  filter_change_s: 60
+  filters:
+    g: {m_ref: 20.8, t_ref_s: 30, k_ext: 0.18}
+    r: {m_ref: 20.6, t_ref_s: 30, k_ext: 0.11}
+  exposure: {t_min_s: 30, t_max_s: 300, t_single_max_s: 300}
+constraints: {sun_alt_max_deg: -12, airmass_max: 2.5, sun_sep_min_deg: 30, moon_sep_min_deg: 20}
+visit_pattern: [{filter: r}, {filter: g, min_gap_min: 30, max_gap_min: 300}]
+adapters: [generic, treasuremap]
+submission_enabled: false

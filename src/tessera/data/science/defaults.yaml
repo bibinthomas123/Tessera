@@ -1,0 +1,124 @@
+# tessera science-model defaults.
+#
+# This file is versioned together with the science model (tessera.SCIENCE_MODEL_VERSION).
+# Any change that alters rankings requires a Science Model Enhancement Proposal (SMEP).
+# Values marked `provisional: true` are pending science review (spec section 12.4)
+# and are flagged in every output that uses them.
+science_model: "1.1.0"
+
+cosmology: Planck18            # astropy.cosmology realisation used for z -> d_L
+peculiar_velocity_kms: 300     # sigma_v; s_pv = sigma_v / H0
+dist_frac_floor: 0.10          # fractional distance error when none is given (spec-z)
+photoz_sigma_frac: 0.05        # sigma_z = 0.05 (1 + z) when a photo-z has no error
+cr_max: 0.99                   # credible-level pre-cut for galaxy scoring
+zscore_max: 5.0                # |distance z-score| pre-cut
+w_impute_percentile: 5         # missing tracer -> 5th percentile of the candidate set
+
+# Solar absolute magnitudes (Vega) used to turn absolute magnitudes into
+# luminosities in solar units.  Willmer (2018) / Binney & Merrifield (1998).
+solar_abs_mag:
+  B: 5.48
+  K: 3.28
+  W1: 3.24
+
+# Expected cosmic weight densities rho_bar_w used by the completeness cube and
+# by the host-posterior strategy.  Units: solar units of the tracer per Mpc^3.
+reference_density:
+  lum_B:
+    value: 1.98e+8             # 1.98e-2 L10 Mpc^-3, L10 = 1e10 L_B,sun
+    source: "Kopparapu et al. 2008, ApJ 675, 1459"
+    provisional: false
+  lum_K:
+    value: 4.01e+8             # L_K,sun Mpc^-3 at h = 0.7
+    source: >-
+      Kochanek et al. 2001, ApJ 560, 566, Table 3 (2MASS, standard fit, all types):
+      K* = -23.39 + 5 log h, alpha = -1.09, n* = 1.16e-2 h^3 Mpc^-3; j_K = n* L* Gamma(alpha + 2)
+      = 5.73e8 h L_sun Mpc^-3 with M_sun,K = 3.28 (Vega), i.e. 4.01e8 at h = 0.7.
+      Derived by tessera from the published fit (the paper does not quote a total j_K).
+    provisional: false
+  mstar:
+    value: 3.9e+8              # Msun Mpc^-3 at h = 0.7
+    source: >-
+      Bell et al. 2003, ApJS 149, 289 (abstract): Omega_* h = 0.0020 +/- 0.0006, an upper limit
+      for an IMF as rich in low-mass stars as galaxy dynamics allow; rho_* = 0.0020 * 2.775e11 h
+      = 5.55e8 h Msun Mpc^-3, 3.9e8 at h = 0.7.
+    provisional: true          # upper limit; IMF consistency with GLADE+ M* not yet verified
+
+# Light-curve models for detectability (spec 6.1).  Absolute magnitudes (AB).
+light_curves:
+  at2017gfo:
+    description: >
+      Tabulated AT2017gfo absolute AB light curves (u g r i z y): binned medians of the detections
+      in Villar et al. 2017 (ApJL 851, L21) Table 3, corrected for E(B-V) = 0.105 and placed at
+      39.5 Mpc as in that paper. Interpolated linearly in log time; held at the first value before
+      0.47 d; extrapolated with the last measured decline after the last epoch. Other filters map
+      to the nearest tabulated band (see filter_map).
+    kind: table
+    file: at2017gfo_absmag.csv
+    provisional: false
+    sigma_mag: 0.5             # kilonova diversity around AT2017gfo: an assumption, not a measurement
+    filter_map: {U: u, B: g, V: g, R: r, I: i, clear: r, w: r, L: r, Y: y, J: y, H: y, K: y, Ks: y}
+  kn-gfo-approx:
+    description: >
+      Superseded by the tabulated 'at2017gfo' model (science model 1.1.0); kept for comparison.
+      Linear decline after a fixed peak.
+    provisional: true
+    t_peak_days: 0.5
+    sigma_mag: 0.5
+    filters:
+      u: {m_peak: -15.5, decline: 1.5}
+      g: {m_peak: -16.0, decline: 1.0}
+      r: {m_peak: -16.0, decline: 0.7}
+      i: {m_peak: -16.0, decline: 0.5}
+      z: {m_peak: -16.0, decline: 0.4}
+      y: {m_peak: -16.0, decline: 0.35}
+      default: {m_peak: -16.0, decline: 0.6}
+  flat-16:
+    description: "Constant M = -16 +/- 1 in every filter (bracketing model)."
+    provisional: false
+    t_peak_days: 0.0
+    sigma_mag: 1.0
+    filters:
+      default: {m_peak: -16.0, decline: 0.0}
+
+# Population presets (spec 3.8).  Nothing here is hard-coded in the engine.
+presets:
+  bns:
+    strategy: vol3d-lumK
+    objective: yield
+    light_curve: at2017gfo
+    field_mode: auto
+    horizon_nights: 3
+    galaxy_targeting: true
+  nsbh:
+    strategy: vol3d-lumK
+    objective: yield
+    light_curve: at2017gfo
+    field_mode: auto
+    horizon_nights: 3
+    galaxy_targeting: true
+  bbh:
+    strategy: vol3d-flat
+    objective: sky_prob
+    light_curve: flat-16
+    field_mode: tessellate
+    horizon_nights: 1
+    galaxy_targeting: false
+    note: "No EM counterpart is expected under the standard model for BBH mergers."
+  custom:
+    strategy: vol3d-lumK
+    objective: sky_prob
+    light_curve: at2017gfo
+    field_mode: auto
+    horizon_nights: 1
+    galaxy_targeting: true
+
+# Named scoring strategies (spec 3.8).
+strategies:
+  vol3d-lumK:  {distance: true,  weight: lum_K,    output: ranking_score}
+  vol3d-mstar: {distance: true,  weight: mstar,    output: ranking_score}
+  vol3d-lumB:  {distance: true,  weight: lum_B,    output: ranking_score}
+  vol3d-flat:  {distance: true,  weight: flat,     output: ranking_score}
+  vol3d-rate:  {distance: true,  weight: bns_rate, output: ranking_score, experimental: true}
+  sky2d-flat:  {distance: false, weight: flat,     output: ranking_score}
+  host-posterior: {distance: true, weight: lum_K,  output: host_probability, experimental: true}

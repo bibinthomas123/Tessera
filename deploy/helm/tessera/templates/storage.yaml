@@ -1,0 +1,27 @@
+{{- if not .Values.persistence.data.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "tessera.fullname" . }}-data
+  labels: {{- include "tessera.labels" . | nindent 4 }}
+spec:
+  accessModes: {{- toYaml .Values.persistence.data.accessModes | nindent 4 }}
+  {{- with .Values.persistence.data.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources: {requests: {storage: {{ .Values.persistence.data.size }}}}
+{{- end }}
+{{- if not .Values.persistence.catalogs.existingClaim }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "tessera.fullname" . }}-catalogs
+  labels: {{- include "tessera.labels" . | nindent 4 }}
+spec:
+  accessModes: {{- toYaml .Values.persistence.catalogs.accessModes | nindent 4 }}
+  {{- with .Values.persistence.catalogs.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources: {requests: {storage: {{ .Values.persistence.catalogs.size }}}}
+{{- end }}

@@ -1,0 +1,22 @@
+{{- if .Values.listener.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "tessera.fullname" . }}-listener
+  labels: {{- include "tessera.labels" . | nindent 4 }}
+spec:
+  replicas: 1          # a single consumer; duplicate deliveries are deduplicated by alert key anyway
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {{- include "tessera.selector" (dict "root" . "component" "listener") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "tessera.selector" (dict "root" . "component" "listener") | nindent 8 }}
+    spec:
+      {{- include "tessera.podCommon" . | nindent 6 }}
+      containers:
+        - name: listener
+          {{- include "tessera.containerCommon" . | nindent 10 }}
+          args: ["tessera", "listen", "--source", {{ .Values.listener.source | quote }}, "--path", "/data/alerts"]
+          resources: {{- toYaml .Values.listener.resources | nindent 12 }}
+{{- end }}

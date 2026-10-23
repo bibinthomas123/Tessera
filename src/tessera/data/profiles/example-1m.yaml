@@ -1,0 +1,42 @@
+# ILLUSTRATIVE profile: a generic 1 m robotic telescope at Las Campanas.
+# Values are plausible placeholders, NOT a validated facility profile.
+schema: tessera.telescope/1
+id: example-1m
+version: 1
+description: "Illustrative 1 m telescope, 30 arcmin field (not a real facility profile)"
+validation: {level: community, overheads: approximate, notes: "illustrative values only"}
+site: {name: "Las Campanas (illustrative)", lat_deg: -29.0146, lon_deg: -70.6926, elevation_m: 2380, timezone: America/Santiago}
+mount: {type: equatorial, ha_limits_h: [-5.5, 5.5], dec_limits_deg: [-90, 30], park: {ha_h: 0, dec_deg: -29}}
+slew:
+  axes: simultaneous
+  axis1: {vmax_dps: 3.0, acc_dps2: 1.0}
+  axis2: {vmax_dps: 3.0, acc_dps2: 1.0}
+  dome_dps: 2.0
+  settle_s: 10
+  acquisition_s: 20
+instrument:
+  name: "example CCD"
+  footprint:
+    kind: chips
+    pa_deg: [0]
+    chips: [[[-0.25, -0.25], [0.25, -0.25], [0.25, 0.25], [-0.25, 0.25]]]
+  readout_s: 25
+  filter_change_s: 30
+  filters:
+    r: {m_ref: 21.0, t_ref_s: 60, k_ext: 0.10, moon: {dm_full: 1.0}}
+    i: {m_ref: 20.6, t_ref_s: 60, k_ext: 0.07, moon: {dm_full: 0.7}}
+  exposure: {t_min_s: 30, t_max_s: 600, t_single_max_s: 300}
+constraints:
+  sun_alt_max_deg: -12
+  airmass_max: 2.0
+  alt_max_deg: 89
+  horizon_mask: [[0, 15], [90, 20], [180, 15], [270, 15], [360, 15]]
+  sun_sep_min_deg: 30
+  moon_sep_min_deg: {by_illumination: [[0.0, 10], [0.5, 20], [1.0, 30]]}
+  moon_illum_max: 1.0
+visit_pattern: [{filter: r}]
+adapters: [generic, acp, treasuremap, lco]
+adapter_options:
+  treasuremap: {instrumentid: 0}
+  lco: {telescope_class: "1m0", instrument_type: "1M0-SCICAM-SINISTRO", proposal: "CHANGE-ME"}
+submission_enabled: false

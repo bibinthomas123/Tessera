@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tessera follow-up planner</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>tessera</h1>
+  <span class="sub">GW sky map → ranked host galaxies → validated schedules</span>
+  <label class="key">API key <input id="apikey" type="password" autocomplete="off" placeholder="tessera_…"></label>
+</header>
+<main>
+  <section class="card" id="new">
+    <h2>New plan</h2>
+    <form id="planform">
+      <div class="row">
+        <label>Sky map (FITS, flat or multi-order, .gz ok)<input type="file" id="skymap" accept=".fits,.gz,.fz"></label>
+        <label>…or GraceDB URL<input type="url" id="skymapurl" placeholder="https://gracedb.ligo.org/api/superevents/S…/files/bayestar.multiorder.fits"></label>
+      </div>
+      <div class="row">
+        <label>Catalog<select id="catalog"></select></label>
+        <label>Preset<select id="preset"><option>bns</option><option>nsbh</option><option>bbh</option><option>custom</option></select></label>
+        <label>Strategy<select id="strategy"><option value="">(preset default)</option></select></label>
+        <label>Planning start (UTC)<input id="tstart" placeholder="2017-08-17T22:00:00 (blank = now)"></label>
+        <label>Nights<input id="nights" type="number" min="0.25" max="14" step="0.25" placeholder="preset"></label>
+      </div>
+      <fieldset><legend>Telescope profiles</legend><div id="profiles" class="checks"></div>
+        <label class="inline">or upload a profile (YAML/JSON, admin)<input type="file" id="profileupload" accept=".yaml,.yml,.json"></label>
+      </fieldset>
+      <button type="submit">Plan</button> <span id="status" class="status" role="status"></span>
+    </form>
+  </section>
+
+  <section class="card hidden" id="result">
+    <h2>Plan <code id="plankey"></code></h2>
+    <div class="grid">
+      <div><h3>Localisation</h3><canvas id="sky" width="560" height="360" aria-label="credible region, scheduled fields and top galaxies"></canvas>
+        <p class="legend"><span class="sw region"></span>90% region <span class="sw field"></span>scheduled fields <span class="sw gal"></span>top galaxies</p></div>
+      <div><h3>Probability budget</h3><table id="budget"></table>
+        <h3>Strategy comparison</h3><div id="comparison"></div></div>
+    </div>
+    <h3>Diagnostics</h3><ul id="diagnostics"></ul>
+    <h3>Ranked galaxies <small>(S is a ranking score, not a host probability)</small></h3>
+    <p><a href="#" data-dl="galaxies?format=csv">CSV</a> · <a href="#" data-dl="galaxies?format=json">JSON</a> · <a href="#" data-dl="galaxies?format=ecsv">ECSV</a> · <a href="#" data-dl="manifest">manifest</a></p>
+    <div class="scroll"><table id="galaxies"></table></div>
+    <h3>Schedules</h3><div id="schedules"></div>
+  </section>
+
+  <section class="card" id="history">
+    <h2>Recent plans and events</h2>
+    <div class="grid"><div><h3>Plans</h3><ul id="plans"></ul></div><div><h3>Events</h3><ul id="events"></ul></div></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

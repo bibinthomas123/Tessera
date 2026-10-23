@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tessera-gw"
+version = "1.0.0.dev0"
+description = "Telescope-agnostic gravitational-wave follow-up engine: host-galaxy ranking, feasible schedules, reproducibility manifests."
+readme = "README.md"
+license = { text = "BSD-3-Clause" }
+requires-python = ">=3.10"
+authors = [{ name = "tessera contributors" }]
+keywords = ["gravitational waves", "LIGO", "Virgo", "KAGRA", "Rubin", "follow-up", "HEALPix", "scheduling"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: BSD License",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Typing :: Typed",
+]
+# Core: minimal mandatory scientific dependencies only.
+dependencies = [
+  "numpy>=1.24",
+  "scipy>=1.10",
+  "astropy>=6.0",
+  "astropy-healpix>=1.0",
+  "astroplan>=0.10",
+  "pyarrow>=14",
+  "pydantic>=2.5",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+service = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.27",
+  "python-multipart>=0.0.9",
+  "sqlalchemy>=2.0",
+  "argon2-cffi>=23.1",
+  "structlog>=24.1",
+  "prometheus-client>=0.20",
+  "httpx>=0.27",
+  "pyjwt[crypto]>=2.8",
+]
+postgres = ["psycopg[binary]>=3.1"]
+alerts = ["gcn-kafka>=0.3", "hop-client>=0.9", "httpx>=0.27"]
+rubin = ["rubin-scheduler"]
+validation = ["skyfield>=1.48", "ligo.skymap>=2.0", "ortools>=9.8"]
+dev = [
+  "tessera-gw[service]",
+  "pytest>=8",
+  "pytest-cov>=5",
+  "skyfield>=1.48",
+  "ruff>=0.4",
+  "mypy>=1.8",
+]
+
+[project.scripts]
+tessera = "tessera.cli:main"
+
+[project.entry-points."tessera.adapters"]
+generic = "tessera.adapters.schedulers.generic:GenericAdapter"
+acp = "tessera.adapters.schedulers.acp:ACPAdapter"
+lco = "tessera.adapters.schedulers.lco:LCOAdapter"
+treasuremap = "tessera.adapters.schedulers.treasuremap:TreasureMapAdapter"
+rubin_too = "tessera.adapters.schedulers.rubin_too:RubinToOAdapter"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tessera = ["data/profiles/*.yaml", "data/science/*.yaml", "data/*.csv", "service/static/*", "py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+  "slow: long-running tests (historical events at full resolution)",
+  "network: tests that need internet access",
+]
+filterwarnings = [
+  "ignore::astropy.utils.exceptions.AstropyWarning",
+  "ignore::DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B008", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B023"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true

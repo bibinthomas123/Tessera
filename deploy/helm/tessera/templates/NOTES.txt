@@ -1,0 +1,11 @@
+Tessera {{ .Chart.AppVersion }} installed as {{ include "tessera.fullname" . }}.
+
+1. The Secret {{ .Values.existingSecret }} must provide TESSERA_DATABASE_URL (PostgreSQL).
+2. Load a catalog snapshot into the catalogs volume (tessera ingest-catalog ...) and set
+   config.defaultCatalog.
+3. Create an API key:
+   kubectl exec deploy/{{ include "tessera.fullname" . }}-api -- tessera keys create --name ops --scopes read,plan,approve
+{{- if .Values.ingress.enabled }}
+4. UI: https://{{ .Values.ingress.host }}/ui/   API docs: https://{{ .Values.ingress.host }}/v1/docs
+{{- end }}
+Schedules stay "proposed" until a person with the approve scope approves an exact version.

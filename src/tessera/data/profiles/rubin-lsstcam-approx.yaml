@@ -1,0 +1,39 @@
+# APPROXIMATE Rubin/LSSTCam profile for planning studies and for the
+# rubin_too adapter.  Rubin's own Feature-Based Scheduler builds the real
+# tiling; this profile is used to estimate coverage and yield only.
+# m5 values: Ivezic et al. 2019 (ApJ 873, 111), Table 2, 30 s visits.
+schema: tessera.telescope/1
+id: rubin-lsstcam-approx
+version: 1
+description: "Approximate Rubin Observatory / LSSTCam (rotation-averaged 9.6 deg2 footprint)"
+validation: {level: community, overheads: approximate, notes: "for planning estimates; not Rubin-validated"}
+site: {name: "Cerro Pachon", lat_deg: -30.2446, lon_deg: -70.7494, elevation_m: 2663, timezone: America/Santiago}
+mount: {type: altaz, park: {ha_h: 0, dec_deg: -30}}
+slew:
+  axes: simultaneous
+  axis1: {vmax_dps: 7.0, acc_dps2: 7.0}
+  axis2: {vmax_dps: 3.5, acc_dps2: 3.5}
+  settle_s: 3
+  acquisition_s: 0
+instrument:
+  name: LSSTCam
+  footprint: {kind: circle, radius_deg: 1.75, rotation_averaged: true, pa_deg: [0]}
+  readout_s: 2
+  filter_change_s: 120
+  filters:
+    g: {m_ref: 25.0, t_ref_s: 30, k_ext: 0.21, moon: {dm_full: 1.2}}
+    r: {m_ref: 24.7, t_ref_s: 30, k_ext: 0.13, moon: {dm_full: 0.9}}
+    i: {m_ref: 24.0, t_ref_s: 30, k_ext: 0.10, moon: {dm_full: 0.6}}
+    z: {m_ref: 23.3, t_ref_s: 30, k_ext: 0.07, moon: {dm_full: 0.4}}
+  exposure: {t_min_s: 30, t_max_s: 180, t_single_max_s: 180}
+constraints:
+  sun_alt_max_deg: -12
+  airmass_max: 2.0
+  alt_max_deg: 86.5
+  sun_sep_min_deg: 45
+  moon_sep_min_deg: 30
+visit_pattern:
+  - {filter: g}
+  - {filter: i, min_gap_min: 30, max_gap_min: 240}
+adapters: [generic, rubin_too, treasuremap]
+submission_enabled: false
