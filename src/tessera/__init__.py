@@ -19,7 +19,7 @@ Typical use::
     result.galaxies.write("galaxies.csv")
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 #: Version of the science model (formulas, priors, defaults).  Major bumps
 #: change rankings; minor bumps add optional strategies; patch bumps are

@@ -3,6 +3,16 @@
 All notable changes to Tessera. Software versions follow semver; the science model has its own
 version (see `docs/science.md`).
 
+## [1.0.1] - 2026-10-24
+
+### Fixed
+- README images use absolute URLs so they render on PyPI (the 1.0.0 page showed broken images).
+- Removed a leftover, unused partial copy of the AT2017gfo photometry from the package.
+
+### Added
+- Releases publish to PyPI through trusted publishing (`release.yml`, environment `pypi`),
+  uploading the exact files attached to the GitHub release.
+
 ## [1.0.0] - 2026-10-24
 
 First public release. Science model 1.1.0.
@@ -40,4 +50,5 @@ First public release. Science model 1.1.0.
 - Packaged telescope profiles are illustrative, not facility-validated.
 - The two-group independent rerun (docs/validation-protocol.md) has not yet been performed.
 
+[1.0.1]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.0.1
 [1.0.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.0.0
