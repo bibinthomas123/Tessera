@@ -20,7 +20,13 @@ async function api(path, opts) {
   return body;
 }
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
-function fmt(v, d) { if (v == null) return "–"; if (typeof v === "number") return Math.abs(v) < 1e-3 && v !== 0 ? v.toExponential(2) : v.toFixed(d == null ? 3 : d); return esc(v); }
+function fmt(v, d) {
+  if (v == null) return "–";
+  if (typeof v !== "number") return esc(v);
+  if (Number.isInteger(v) && d == null) return String(v);
+  if (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e5)) return v.toExponential(2);
+  return v.toFixed(d == null ? 3 : d);
+}
 function setStatus(t) { $("status").textContent = t; }
 
 async function loadRefs() {
@@ -91,7 +97,7 @@ async function showPlan(key) {
   const gal = await api(`/v1/plans/${encodeURIComponent(key)}/galaxies?format=json`);
   const cols = ["rank", "tier", "gal_id", "ra", "dec", "dist_mpc", "credible_level", "p_sky_deg2", "p_dist_mpc3", "w", "score_fraction", "flags"];
   $("galaxies").innerHTML = "<tr>" + cols.map((c) => `<th>${c}</th>`).join("") + "</tr>" +
-    gal.rows.slice(0, 200).map((r) => "<tr>" + cols.map((c) => `<td>${fmt(r[c], c === "ra" || c === "dec" ? 4 : 3)}</td>`).join("") + "</tr>").join("");
+    gal.rows.slice(0, 200).map((r) => "<tr>" + cols.map((c) => `<td>${fmt(r[c], c === "ra" || c === "dec" ? 4 : undefined)}</td>`).join("") + "</tr>").join("");
   $("schedules").innerHTML = p.schedules.map((s) => `<div class="sched"><p><strong>${esc(s.profile)}</strong> <span class="badge ${esc(s.status)}">${esc(s.status)}</span> v${s.current_version}
       · export: ${["generic", "acp", "lco", "treasuremap", "rubin_too"].map((a) => `<a href="#" data-exp="${esc(s.schedule_id)}|${s.current_version}|${a}">${a}</a>`).join(" · ")}
       ${s.status === "proposed" || s.status === "edited" ? ` <button class="secondary" data-approve="${esc(s.schedule_id)}|${s.current_version}">approve v${s.current_version}</button>` : ""}</p>
@@ -118,22 +124,40 @@ async function drawSky(key, galaxies) {
   for (const [ra, dec, p] of pts) { const a = ra * Math.PI / 180, d = dec * Math.PI / 180; x += p * Math.cos(d) * Math.cos(a); y += p * Math.cos(d) * Math.sin(a); z += p * Math.sin(d); }
   const ra0 = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360, dec0 = Math.atan2(z, Math.hypot(x, y)) * 180 / Math.PI;
   const dra = (ra) => ((ra - ra0 + 540) % 360) - 180;
-  let span = 1;
-  for (const [ra, dec] of pts) span = Math.max(span, Math.abs(dra(ra)) * Math.cos(dec0 * Math.PI / 180), Math.abs(dec - dec0));
-  span *= 1.15;
-  const sx = (ra, dec) => cv.width / 2 - dra(ra) * Math.cos(dec0 * Math.PI / 180) / span * (cv.width / 2);
-  const sy = (dec) => cv.height / 2 - (dec - dec0) / span * (cv.height / 2);
-  const pmax = Math.max(...pts.map((p) => p[2]));
+  const cosd = Math.cos(dec0 * Math.PI / 180);
+  // fit everything drawn (region, fields, top galaxies) with equal scale on both axes
+  const polys = Object.values(reg.footprints).flat().flatMap((f) => f.polygons);
+  const gals = galaxies.slice(0, 50);
+  const xs = [], ys = [];
+  for (const [ra, dec] of pts) { xs.push(dra(ra) * cosd); ys.push(dec - dec0); }
+  for (const poly of polys) for (const [ra, dec] of poly) { xs.push(dra(ra) * cosd); ys.push(dec - dec0); }
+  for (const g of gals) { xs.push(dra(g.ra) * cosd); ys.push(g.dec - dec0); }
+  const capH = 26, pad = 14, W = cv.width, H = cv.height - capH;
+  const xmin = Math.min(...xs), xmax = Math.max(...xs), ymin = Math.min(...ys), ymax = Math.max(...ys);
+  const scale = Math.min((W - 2 * pad) / Math.max(xmax - xmin, 0.5), (H - 2 * pad) / Math.max(ymax - ymin, 0.5));
+  const xc = (xmin + xmax) / 2, yc = (ymin + ymax) / 2;
+  // east is left on the sky: larger RA plots to the left
+  const sx = (ra) => W / 2 - (dra(ra) * cosd - xc) * scale;
+  const sy = (dec) => H / 2 - (dec - dec0 - yc) * scale;
+  // credible region: each preview pixel (HEALPix order 7, ~0.46 deg) drawn at its true size
+  const pix = 0.458 * scale, pmax = Math.max(...pts.map((p) => p[2]));
   ctx.fillStyle = css.getPropertyValue("--region");
-  for (const [ra, dec, p] of pts) { ctx.globalAlpha = 0.15 + 0.85 * p / pmax; ctx.fillRect(sx(ra, dec) - 2, sy(dec) - 2, 4, 4); }
-  ctx.globalAlpha = 1; ctx.strokeStyle = css.getPropertyValue("--field"); ctx.lineWidth = 1;
-  for (const fps of Object.values(reg.footprints)) for (const f of fps) for (const poly of f.polygons) {
-    ctx.beginPath(); poly.forEach(([ra, dec], i) => (i ? ctx.lineTo(sx(ra, dec), sy(dec)) : ctx.moveTo(sx(ra, dec), sy(dec)))); ctx.closePath(); ctx.stroke();
+  for (const [ra, dec, p] of pts) {
+    ctx.globalAlpha = 0.12 + 0.6 * Math.sqrt(p / pmax);
+    ctx.fillRect(sx(ra) - pix / 2, sy(dec) - pix / 2, pix + 0.5, pix + 0.5);
+  }
+  ctx.globalAlpha = 1; ctx.strokeStyle = css.getPropertyValue("--field"); ctx.lineWidth = 1.25;
+  for (const poly of polys) {
+    ctx.beginPath(); poly.forEach(([ra, dec], i) => (i ? ctx.lineTo(sx(ra), sy(dec)) : ctx.moveTo(sx(ra), sy(dec)))); ctx.closePath(); ctx.stroke();
   }
   ctx.fillStyle = css.getPropertyValue("--gal");
-  for (const g of galaxies.slice(0, 50)) { ctx.beginPath(); ctx.arc(sx(g.ra, g.dec), sy(g.dec), 3, 0, 2 * Math.PI); ctx.fill(); }
+  for (const g of gals) { ctx.beginPath(); ctx.arc(sx(g.ra), sy(g.dec), 3, 0, 2 * Math.PI); ctx.fill(); }
+  // caption strip below the plot, never over the data
+  ctx.fillStyle = css.getPropertyValue("--bg"); ctx.fillRect(0, H, W, capH);
+  ctx.strokeStyle = css.getPropertyValue("--line"); ctx.beginPath(); ctx.moveTo(0, H + 0.5); ctx.lineTo(W, H + 0.5); ctx.stroke();
   ctx.fillStyle = css.getPropertyValue("--muted"); ctx.font = "12px system-ui";
-  ctx.fillText(`centre RA ${ra0.toFixed(1)}°, Dec ${dec0.toFixed(1)}° · half-width ${span.toFixed(1)}° · east left`, 8, cv.height - 8);
+  const deg = 1 / scale * 100;
+  ctx.fillText(`centre RA ${ra0.toFixed(1)}°, Dec ${dec0.toFixed(1)}° · 100 px = ${deg.toFixed(1)}° · east left`, 8, H + 17);
 }
 
 document.addEventListener("click", async (ev) => {

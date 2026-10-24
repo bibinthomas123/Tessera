@@ -109,7 +109,9 @@ def list_catalogs(settings: Settings) -> list[dict[str, Any]]:
         for sub in sorted(d.iterdir()):
             if (sub / "snapshot.json").is_file():
                 try:
-                    out.append({"name": sub.name, **open_snapshot(sub).describe()})
+                    d = open_snapshot(sub).describe()
+                    # "name" is what plan requests use to find the snapshot: its directory name.
+                    out.append({**d, "snapshot_name": d["name"], "name": sub.name})
                 except TesseraError:
                     continue
     return out

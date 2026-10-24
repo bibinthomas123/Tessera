@@ -245,10 +245,10 @@ def test_treasuremap_token_sent_as_header(gw170817_plan, monkeypatch):
     import httpx
 
     monkeypatch.setattr(httpx, "post", fake_post)
-    monkeypatch.setenv("TESSERA_TREASUREMAP_TOKEN", "secret-token")
+    monkeypatch.setenv("TESSERA_TREASUREMAP_TOKEN", "fake-token-for-test")
     appr = Approval(doc["schedule_id"], 0, schedule_sha256(doc), "tester", "2017-08-17T22:00:00Z")
     ad.submit(exp, appr, doc, p)
-    assert seen["headers"] == {"api_token": "secret-token"} and "api_token" not in seen["json"]
+    assert seen["headers"] == {"api_token": "fake-token-for-test"} and "api_token" not in seen["json"]
     assert seen["url"] == "https://treasuremap.space/api/v1/pointings"
 
 

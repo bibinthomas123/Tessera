@@ -97,6 +97,15 @@ def test_upload_limits_and_url_allowlist(svc):
     assert r.json()["code"] == "SKYMAP_INVALID_FORMAT"
 
 
+def test_catalog_listing_names_are_requestable(svc):
+    """The UI sends back the listed name; it must resolve (regression: snapshot name shadowed dir name)."""
+    client, keys = svc
+    cats = client.get("/v1/catalogs", headers=H(keys["reader"])).json()["catalogs"]
+    assert [c["name"] for c in cats] == ["glade"]
+    sid = _upload(client, keys["planner"], gaussian_map_bytes([(197.45, -23.38, 2.0, 1.0)], order=8))
+    assert _plan(client, keys["planner"], sid, catalog=cats[0]["name"]).status_code in (200, 202)
+
+
 def test_plan_lifecycle(svc):
     client, keys = svc
     sid = _upload(client, keys["planner"], gaussian_map_bytes([(197.45, -23.38, 2.0, 1.0)], order=8))

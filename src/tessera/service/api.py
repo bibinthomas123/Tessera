@@ -105,7 +105,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     S = session_factory(settings.database_url)
     store = ArtifactStore(settings.artifacts_dir)
     policy = TriggerPolicy.load(settings.trigger_policy, settings.mode)
-    app = FastAPI(title="tessera", version=__version__, root_path=settings.root_path,
+    app = FastAPI(title="Tessera", version=__version__, root_path=settings.root_path,
                   openapi_url="/v1/openapi.json", docs_url="/v1/docs", redoc_url=None,
                   description="Telescope-agnostic gravitational-wave follow-up engine.")
     app.state.settings, app.state.sessions, app.state.store, app.state.policy = settings, S, store, policy

@@ -3,10 +3,12 @@
 ## Single group (Docker Compose)
 
 ```bash
+cp .env.example .env
+sed -i.bak "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 24)/" .env && rm .env.bak
 mkdir catalogs
 tessera ingest-catalog glade+ GLADE+.txt --out catalogs/gladeplus-2022.10 --upstream-version 2022-10-31 \
      --source-url http://elysium.elte.hu/~dalyag/GLADE+.txt --ebv-map SFD_dust_4096.fits
-export TESSERA_DEFAULT_CATALOG=gladeplus-2022.10
+echo "TESSERA_DEFAULT_CATALOG=gladeplus-2022.10" >> .env
 docker compose up -d
 docker compose exec api tessera keys create --name ops --scopes read,plan,approve
 ```
@@ -28,6 +30,7 @@ Terminate TLS and authenticate at the gateway (e.g. oauth2-proxy). Forward ident
 ## Kubernetes (Helm)
 
 ```bash
+# TESSERA_DATABASE_URL holds your PostgreSQL connection string; keep it out of shell history and git
 kubectl create secret generic tessera-secrets \
   --from-literal=TESSERA_DATABASE_URL="$TESSERA_DATABASE_URL"
 helm install tessera deploy/helm/tessera \
