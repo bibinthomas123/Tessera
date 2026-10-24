@@ -157,6 +157,17 @@ visible region can be covered anyway and depth is what is left to buy. Examples:
 
 `schedule.summary.exposure_choice` records which was kept.
 
+**Field limits.** A field is rejected as low value when its P_sky is below `fields.low_value_eps`
+(1e-4) **and** below `fields.low_value_rel` (1%) of the best field's P_sky. Without the relative
+term, very large maps lost almost all their fields: on S230529ay (24,000 deg²) every 0.25 deg² tile
+holds about 1e-5, and 1.1.0 scheduled no tiles at all. When a region has more tiles than
+`fields.max_fields`, tiles the site can never observe are dropped before the cap: their
+declination keeps them below the minimum altitude, or outside the mount's limits. The drop is
+reported as `FIELDS_UNREACHABLE_FROM_SITE` and `REJECT_UNREACHABLE_FROM_SITE`.
+
+In sequential coordination, a later telescope's `cum_p_sky` includes earlier telescopes' coverage
+only on pixels inside its own fields. It is not the combined coverage of all telescopes.
+
 `hybrid` fields are galaxy-targeted fields plus tiles where the catalog is incomplete (the primary
 fields), and tiles over the rest of the credible region with origin `fill`. A fill tile is a
 candidate only when no primary field has positive gain at that moment, so galaxies keep their

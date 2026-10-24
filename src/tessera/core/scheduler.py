@@ -495,7 +495,11 @@ class GreedyScheduler:
             hist: dict[str, int] = {}
             for r in unscheduled.values():
                 hist[r.split(":")[0]] = hist.get(r.split(":")[0], 0) + 1
-            if nf == 0:
+            if fs.n_unreachable:
+                hist["REJECT_UNREACHABLE_FROM_SITE"] = fs.n_unreachable
+            if nf == 0 and fs.n_unreachable:
+                empty = "NO_FIELD_VISIBLE_IN_HORIZON"
+            elif nf == 0:
                 empty = "NO_CANDIDATE_FIELDS"
             elif not active.any():
                 empty = "NO_FIELD_VISIBLE_IN_HORIZON"

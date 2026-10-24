@@ -187,6 +187,22 @@ def test_empty_schedule_explains_itself(glade_snapshot):
     assert s["visits"] == [] and s["empty_reason"] == "NO_FIELD_VISIBLE_IN_HORIZON"
     assert "EMPTY_SCHEDULE" in [d["code"] for d in r.diagnostics]
     assert any(k.startswith("REJECT") for k in s["unscheduled_counts"])
+    assert "FIELDS_UNREACHABLE_FROM_SITE" in [d["code"] for d in r.diagnostics]
+
+
+def test_very_large_map_still_gets_fields(glade_snapshot):
+    """On a near-uniform all-sky map every 0.25 deg2 tile holds ~6e-6 < low_value_eps; the cut must be
+    relative, or almost every tile is rejected (1.1.0 scheduled 25 visits here)."""
+    from tessera import PlanConfig, plan
+    from tessera.testing import gaussian_map
+
+    m = gaussian_map([(197.45, -23.38, 2000.0, 2000.0)], order=6)
+    r = plan(m, glade_snapshot, ["example-1m"], PlanConfig(preset="bbh", field_mode="tessellate"),
+             "2017-08-17T22:00:00")
+    s = r.schedules["example-1m@1"]
+    assert s["feasible"] and len(s["visits"]) > 200
+    assert "REJECT_LOW_VALUE" not in s["unscheduled_counts"]
+    assert s["unscheduled_counts"]["REJECT_UNREACHABLE_FROM_SITE"] > 0
 
 
 def test_revisit_pattern_respected(glade_snapshot):

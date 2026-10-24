@@ -38,6 +38,8 @@ class FieldConfig(BaseModel):
 
     overlap: float = Field(0.05, ge=0, lt=0.9)
     low_value_eps: float = Field(1e-4, ge=0)
+    low_value_rel: float = Field(0.01, ge=0, le=1,
+                                 description="also keep fields above this fraction of the best field's P_sky")
     max_fields: int = Field(5000, ge=1)
     galaxy_fields_max: int = Field(1000, ge=1)
     galaxy_fields_cum_score: float = Field(0.99, gt=0, le=1)

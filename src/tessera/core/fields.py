@@ -69,6 +69,7 @@ class FieldSet:
     host_norm: float
     host_metric: str                # "p_host_cat" | "score_fraction_in_field"
     timings: dict[str, float] = field(default_factory=dict)
+    n_unreachable: int = 0          # in-region tiles dropped because the site can never observe them
 
     def __len__(self) -> int:
         return len(self.field_id)
@@ -225,6 +226,7 @@ def build_fields(
 
     ids: list[str] = []
     ras, decs, pas, origin = [], [], [], []
+    n_unreachable = 0
 
     def add(i_ids, i_ra, i_dec, i_pa, org):
         ids.extend(i_ids)
@@ -245,6 +247,27 @@ def build_fields(
             gra_, gdec_, gids = _tessellation(fp, fc.overlap, lo, hi)
             gpa = np.full(len(gids), pa0)
             org = "tile"
+        # When the region has more tiles than max_fields, drop centres this site can never observe
+        # (culmination below the minimum altitude, or outside the mount's declination limits)
+        # before the cap, so the cap is not spent on fields the telescope cannot reach.  Applied
+        # only when the cap binds, so smaller regions keep exactly the same field set.
+        culm = 90.0 - np.abs(gdec_ - profile.site.lat_deg)
+        dlo, dhi = profile.mount.dec_limits_deg
+        reach = (culm >= profile.constraints.min_alt() - fp.bounding_radius_deg) & \
+            (gdec_ >= dlo - fp.bounding_radius_deg) & (gdec_ <= dhi + fp.bounding_radius_deg)
+        if not reach.all():
+            n_region = len(_prefilter(m, fc.region_level, gra_, gdec_, fp, 10**9))
+            if n_region > fc.max_fields:
+                n_unreachable = len(_prefilter(m, fc.region_level, gra_[~reach], gdec_[~reach], fp, 10**9))
+            elif not len(_prefilter(m, fc.region_level, gra_[reach], gdec_[reach], fp, 10**9)):
+                n_unreachable = n_region   # nothing in the region is reachable: say so explicitly
+            if n_unreachable:
+                diags.add("FIELDS_UNREACHABLE_FROM_SITE",
+                          f"{n_unreachable} tiles in the region never rise above the minimum altitude or lie "
+                          f"outside the mount's declination limits at {profile.key}", level="info",
+                          profile=profile.key, n=n_unreachable)
+                gids = [g for g, k in zip(gids, reach) if k] if not isinstance(gids, np.ndarray) else gids[reach]
+                gra_, gdec_, gpa = gra_[reach], gdec_[reach], gpa[reach]
         rmask = low_coverage_pixmask if mode == "hybrid" else None
         if mode == "hybrid" and rmask is None:
             rmask = np.zeros(len(m), bool)
@@ -352,7 +375,10 @@ def build_fields(
             ebv_mean[i] = float(np.sum(ww * u_ebv[sl][ok]))
     status = np.full(nf, "candidate", dtype=object)
     reason = np.full(nf, "", dtype=object)
-    low = (p_sky < fc.low_value_eps) & (n_gal == 0)
+    # Relative to the best field as well: on very large maps every field holds < low_value_eps,
+    # and an absolute cut alone would reject them all.
+    eps = min(fc.low_value_eps, fc.low_value_rel * float(p_sky.max())) if nf else fc.low_value_eps
+    low = (p_sky < eps) & (n_gal == 0)
     status[low] = "rejected"
     reason[low] = "REJECT_LOW_VALUE"
     if nf == 0:
@@ -363,7 +389,7 @@ def build_fields(
                   u_ebv=u_ebv, u_ra=u_ra, u_dec=u_dec, gal_ptr=gptr, gal_idx=gal_idx, gal_w=gal_w, p_sky=p_sky,
                   p_host=p_host, n_galaxies=n_gal, raster_err=err, dm90=dm90, ebv_mean=ebv_mean, status=status,
                   reason=reason, host_norm=host_norm, host_metric=host_metric,
-                  timings={"generate": t_gen, "rasterize": t_ras, "galaxies": t_gal})
+                  timings={"generate": t_gen, "rasterize": t_ras, "galaxies": t_gal}, n_unreachable=n_unreachable)
     return fs
 
 

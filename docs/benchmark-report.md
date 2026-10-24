@@ -6,7 +6,7 @@
 | --- | --- |
 | ngc4993_rank_vol3d_lumK | 1 |
 | ngc4993_rank_sky2d | 14 |
-| gw170817_plan_wall_s | 2.07 |
+| gw170817_plan_wall_s | 2.13 |
 | top10_recovery_vol3d_lumK | 0.43 |
 | top10_recovery_sky2d | 0.07 |
 | 3d_beats_2d_at_all_k | True |
@@ -47,16 +47,16 @@ Credible level of NGC 4993: 0.383. First example-1m visit covering it: {'start':
 
 ### S190425z
 
-90% area 10183 deg2, wall 16.34 s.
+90% area 10183 deg2, wall 18.38 s.
 
 | Profile | status | visits | cum P_sky | mode |
 | --- | --- | --- | --- | --- |
 | example-wide-north@1 | proposed | 387 | 0.588 | tessellate |
-| rubin-lsstcam-approx@1 | proposed | 948 | 0.692 | tessellate |
+| rubin-lsstcam-approx@1 | proposed | 940 | 0.693 | tessellate |
 
 ### S200105ae
 
-90% area 7719 deg2, wall 13.4 s.
+90% area 7719 deg2, wall 13.92 s.
 
 | Profile | status | visits | cum P_sky | mode |
 | --- | --- | --- | --- | --- |
@@ -91,4 +91,4 @@ Deterministic: True
 
 Malformed inputs: empty=SKYMAP_INVALID_FORMAT, not_fits=SKYMAP_INVALID_FORMAT, truncated=SKYMAP_INVALID_FORMAT, gzip_garbage=SKYMAP_INVALID_FORMAT, gzip_bomb=SKYMAP_TOO_LARGE
 
-Runtime of this report: 100.8 s
+Runtime of this report: 121.7 s

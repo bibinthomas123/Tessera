@@ -11,6 +11,13 @@ version (see `docs/science.md`).
   low-coverage field has gain. GW170817 / example 1 m: 25 → 69 visits, sky probability 16% → 72%,
   galaxy score and the first 25 visits unchanged. Found by comparing with gwemopt and tilepy.
 
+- Very large maps no longer lose all their fields. The low-value cut (`fields.low_value_eps`, 1e-4)
+  now also requires a field to be below 1% of the best field (`fields.low_value_rel`). Before, every
+  tile of a map spread over tens of thousands of deg² fell under the absolute cut: S230529ay with
+  the example 1 m telescope got 0 tiling visits, and now gets 70; the default mode now gets 0.0018
+  expected detections. When the `max_fields` cap binds, tiles the site can never observe are
+  dropped before the cap (`FIELDS_UNREACHABLE_FROM_SITE`).
+
 ### Changed
 - Exposure times under the yield objective: new `scheduler.exposure_choice` (`best` by default,
   `yield_rate`, `depth`). `best` schedules with depth-solved exposures and with exposures chosen

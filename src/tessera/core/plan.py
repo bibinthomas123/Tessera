@@ -415,7 +415,8 @@ def plan(
                                                   "violations_by_constraint", "step_s")},
             "visits": res.visits,
             "summary": {**res.summary, "p_uncat": budget.get("p_uncat"), "fields": fields_summary(fs)},
-            "unscheduled_counts": _hist(res.unscheduled),
+            "unscheduled_counts": {**_hist(res.unscheduled),
+                                   **({"REJECT_UNREACHABLE_FROM_SITE": fs.n_unreachable} if fs.n_unreachable else {})},
             "empty_reason": res.empty_reason,
         }
         if res.empty_reason:
