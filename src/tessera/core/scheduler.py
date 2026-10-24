@@ -16,6 +16,7 @@ Loop:
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -122,12 +123,27 @@ class GreedyScheduler:
         k = np.clip(np.round((jd - self.vis.jd[0]) * DAY / self.vis.step_s).astype(int), 0, len(self.vis.jd) - 1)
         return self.vis.moon_illum[k], self.vis.moon_alt[k] > 0
 
-    def _exposures(self, rows: np.ndarray, start: np.ndarray, filt: str) -> tuple[np.ndarray, np.ndarray]:
+    def _exposure_ladder(self) -> list[float | None]:
+        """Total exposure times tried per visit; None is the depth-solved time."""
+        exp = self.prof.instrument.exposure
+        if (exp.fixed_s is not None or self.objective != "yield" or self.sc.gain_mode != "gain_rate"
+                or self._exposure_mode != "yield_rate"):
+            return [None]
+        ladder, t = [], float(exp.t_min_s)
+        while t < exp.t_max_s:
+            ladder.append(t)
+            t *= 2.0
+        return [None, *ladder, float(exp.t_max_s)]
+
+    def _exposures(self, rows: np.ndarray, start: np.ndarray, filt: str,
+                   total_s: float | None = None) -> tuple[np.ndarray, np.ndarray]:
         spec = self.prof.instrument.filters[filt]
         exp = self.prof.instrument.exposure
         X = self._airmass(rows, start)
         illum, up = self._moon(start)
-        if exp.fixed_s is not None:
+        if total_s is not None and exp.fixed_s is None:
+            total = np.full(len(rows), float(total_s))
+        elif exp.fixed_s is not None:
             total = np.full(len(rows), exp.fixed_s * (exp.n_exp_fixed or 1))
         else:
             if self.t_merger is not None:
@@ -203,7 +219,44 @@ class GreedyScheduler:
         return {"p_sky": p_sky, fs.host_metric: p_host, "expected_detections": exp_det}
 
     # -- main loop ------------------------------------------------------------
+    _exposure_mode = "depth"
+
     def run(self) -> ScheduleResult:
+        """Schedule; with exposure_choice 'best', keep the better of the depth and yield-rate runs.
+
+        Choosing exposures by gain rate is myopic: it wins when there is more sky than time, but
+        loses when the visible region can be covered anyway and depth is what is left to buy.
+        Running both from the same starting coverage and keeping the higher expected yield is
+        never worse than the depth policy.
+        """
+        choice = self.sc.exposure_choice
+        self._exposure_mode = "yield_rate" if choice == "yield_rate" else "depth"
+        if choice != "best" or self.objective != "yield":
+            return self._finish(self._run_once(), self._exposure_mode)
+        self._exposure_mode = "yield_rate"
+        if self._exposure_ladder() == [None]:
+            self._exposure_mode = "depth"
+            return self._finish(self._run_once(), "depth")
+        start_cov = copy.deepcopy(self.cov)
+        self._exposure_mode = "depth"
+        a = self._run_once()
+        self.cov = copy.deepcopy(start_cov)
+        self._exposure_mode = "yield_rate"
+        b = self._run_once()
+        ya, yb = a.summary.get("cum_expected_detections", 0.0), b.summary.get("cum_expected_detections", 0.0)
+        if yb > ya * (1 + 1e-9):
+            return self._finish(b, "yield_rate", {"depth": ya, "yield_rate": yb})
+        self.cov = a.coverage
+        return self._finish(a, "depth", {"depth": ya, "yield_rate": yb})
+
+    @staticmethod
+    def _finish(res: ScheduleResult, mode: str, compared: dict[str, float] | None = None) -> ScheduleResult:
+        res.summary["exposure_choice"] = mode
+        if compared:
+            res.summary["exposure_choice_expected_detections"] = {k: round(v, 6) for k, v in compared.items()}
+        return res
+
+    def _run_once(self) -> ScheduleResult:
         fs, vis, sc = self.fs, self.vis, self.sc
         pattern = self.prof.visit_pattern
         nf = len(fs)
@@ -269,21 +322,46 @@ class GreedyScheduler:
                     rows, gap, start = rows[keep], gap[keep], start[keep]
                     if not len(rows):
                         continue
-                n_exp, t_single = self._exposures(rows, start, filt)
-                dur = (n_exp * (t_single + self.prof.instrument.readout_s)) / DAY
-                end = start + dur
-                win = self._window_for(rows, start, end)
-                ok = (win >= 0) & (end <= self.t1)
-                if not ok.any():
+                # For the yield objective each field's exposure is chosen from a ladder to maximise
+                # gain per hour (the depth-solved time is always one of the options).
+                best = None
+                for total_s in (self._exposure_ladder() if fi == 0 else [None]):
+                    n_exp, t_single = self._exposures(rows, start, filt, total_s)
+                    dur = (n_exp * (t_single + self.prof.instrument.readout_s)) / DAY
+                    end = start + dur
+                    win = self._window_for(rows, start, end)
+                    ok = (win >= 0) & (end <= self.t1)
+                    if not ok.any():
+                        continue
+                    o = tuple(x[ok] for x in (rows, gap, start, end, n_exp, t_single, dur, win))
+                    mlim = self._m_lim(o[0], filt, o[4], o[5], o[2], o[3])
+                    gain = self._gains(o[0], filt, mlim, o[2]) if fi == 0 else pattern_gain[o[0]]
+                    score = gain / ((o[1] + o[6]) * 24.0) if sc.gain_mode == "gain_rate" else gain
+                    opt = {"rows": o[0], "cols": o[1:], "mlim": mlim, "gain": gain, "score": score}
+                    if best is None:
+                        best = opt
+                        continue
+                    # merge: per field keep the option with the higher score
+                    idx = {int(r): k for k, r in enumerate(best["rows"])}
+                    for k, r in enumerate(opt["rows"]):
+                        j = idx.get(int(r))
+                        if j is None or opt["score"][k] > best["score"][j] + 1e-15:
+                            if j is None:
+                                best["rows"] = np.append(best["rows"], r)
+                                best["cols"] = tuple(np.append(c, oc[k]) for c, oc in zip(best["cols"], opt["cols"]))
+                                for key in ("mlim", "gain", "score"):
+                                    best[key] = np.append(best[key], opt[key][k])
+                                idx[int(r)] = len(best["rows"]) - 1
+                            else:
+                                for c, oc in zip(best["cols"], opt["cols"]):
+                                    c[j] = oc[k]
+                                for key in ("mlim", "gain", "score"):
+                                    best[key][j] = opt[key][k]
+                if best is None:
                     continue
-                rows, gap, start, end, n_exp, t_single, dur, win = (x[ok] for x in
-                                                                     (rows, gap, start, end, n_exp, t_single, dur, win))
-                mlim = self._m_lim(rows, filt, n_exp, t_single, start, end)
-                if fi == 0:
-                    gain = self._gains(rows, filt, mlim, start)
-                else:
-                    gain = pattern_gain[rows]
-                score = gain / ((gap + dur) * 24.0) if sc.gain_mode == "gain_rate" else gain
+                rows = best["rows"]
+                gap, start, end, n_exp, t_single, dur, win = best["cols"]
+                mlim, gain, score = best["mlim"], best["gain"], best["score"]
                 for k in range(len(rows)):
                     cands.append((rows[k], fi, filt, gap[k], start[k], end[k], n_exp[k], t_single[k], win[k],
                                   mlim[k], gain[k], score[k]))

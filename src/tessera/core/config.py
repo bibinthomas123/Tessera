@@ -26,6 +26,11 @@ class SchedulerConfig(BaseModel):
     runners_up: int = Field(3, ge=0, le=20)
     filter_block_min: float | None = Field(None, gt=0, le=720,
                                            description="hold one filter for blocks of this many minutes")
+    exposure_choice: Literal["best", "yield_rate", "depth"] = Field(
+        "best", description="yield objective only. 'depth': reach the kilonova depth at the field's 90% "
+                            "distance (the only behaviour before 1.2). 'yield_rate': pick each visit's "
+                            "exposure from a ladder to maximise expected detections per hour. 'best': "
+                            "schedule both ways and keep the schedule with more expected detections")
 
 
 class FieldConfig(BaseModel):

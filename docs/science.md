@@ -137,6 +137,26 @@ constraint window are candidates, and an independent validator rechecks every vi
 Optional filter blocking (`scheduler.filter_block_min`) holds one filter for blocks of that many
 minutes.
 
+**Exposure times (yield objective).** `scheduler.exposure_choice`:
+
+* `depth` gives each visit the exposure that reaches the kilonova at the field's 90% distance,
+  clamped to the profile's limits. This was the only behaviour in 1.1.0 and earlier.
+* `yield_rate` tries a ladder (the depth time, then t_min, 2 t_min, … up to t_max) and keeps the
+  exposure with the most expected detections per hour.
+* `best` (the default) schedules the night both ways from the same starting coverage, and keeps
+  the schedule with more expected detections.
+
+The yield-rate choice is myopic. It wins when there is more sky than time, but loses when the
+visible region can be covered anyway and depth is what is left to buy. Examples:
+
+| Telescope and event | Expected detections, depth | Expected detections, yield_rate | `best` keeps |
+| --- | --- | --- | --- |
+| example 1 m, S190425z | 0.013 | 0.017 (60 s exposures instead of 100–600 s) | yield_rate |
+| example 1 m, S200105ae | 0.006 | 0.012 | yield_rate |
+| example wide-field, S190425z | 0.457 | 0.413 | depth |
+
+`schedule.summary.exposure_choice` records which was kept.
+
 `hybrid` fields are galaxy-targeted fields plus tiles where the catalog is incomplete (the primary
 fields), and tiles over the rest of the credible region with origin `fill`. A fill tile is a
 candidate only when no primary field has positive gain at that moment, so galaxies keep their

@@ -152,6 +152,23 @@ def test_hybrid_fills_idle_time_after_galaxy_fields(gw170817_plan):
     assert sched["summary"]["cum_p_sky"] > 0.5
 
 
+def test_exposure_choice_best_keeps_the_higher_yield(glade_snapshot):
+    from tessera import PlanConfig, plan
+    from tessera.core.config import SchedulerConfig
+    from tessera.testing import gaussian_map
+
+    m = gaussian_map([(197.45, -23.38, 4.0, 3.0)], order=8, dist=(200.0, 40.0))
+    out = {}
+    for mode in ("depth", "yield_rate", "best"):
+        cfg = PlanConfig(preset="bns", horizon_nights=1, scheduler=SchedulerConfig(exposure_choice=mode))
+        s = plan(m, glade_snapshot, ["example-1m"], cfg, "2017-08-17T22:00:00",
+                 event={"superevent_id": "S-yield", "revision": 1}).schedules["example-1m@1"]
+        assert s["feasible"]
+        out[mode] = s["summary"]["cum_expected_detections"]
+    assert out["yield_rate"] > out["depth"]
+    assert out["best"] == pytest.approx(max(out["depth"], out["yield_rate"]))
+
+
 def test_three_coverage_metrics_reported_separately(gw170817_plan):
     sm = gw170817_plan.schedules["example-1m@1"]["summary"]
     for k in ("cum_p_sky", "cum_score_fraction_in_field", "cum_expected_detections", "expected_detections_per_hour",

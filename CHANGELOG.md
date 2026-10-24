@@ -11,6 +11,14 @@ version (see `docs/science.md`).
   low-coverage field has gain. GW170817 / example 1 m: 25 → 69 visits, sky probability 16% → 72%,
   galaxy score and the first 25 visits unchanged. Found by comparing with gwemopt and tilepy.
 
+### Changed
+- Exposure times under the yield objective: new `scheduler.exposure_choice` (`best` by default,
+  `yield_rate`, `depth`). `best` schedules with depth-solved exposures and with exposures chosen
+  for detections per hour, and keeps the schedule with more expected detections, so it is never
+  worse than before. Example 1 m: S190425z 0.013 → 0.017 and S200105ae 0.006 → 0.012 expected
+  detections. The wide-field example keeps depth. Yield schedules take about twice as long to
+  compute. `depth` restores the 1.1.0 behaviour.
+
 ## [1.1.0] - 2026-10-24
 
 Science model 1.2.0.
