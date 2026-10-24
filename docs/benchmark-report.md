@@ -6,7 +6,7 @@
 | --- | --- |
 | ngc4993_rank_vol3d_lumK | 1 |
 | ngc4993_rank_sky2d | 14 |
-| gw170817_plan_wall_s | 1.58 |
+| gw170817_plan_wall_s | 2.13 |
 | top10_recovery_vol3d_lumK | 0.43 |
 | top10_recovery_sky2d | 0.07 |
 | 3d_beats_2d_at_all_k | True |
@@ -47,7 +47,7 @@ Credible level of NGC 4993: 0.383. First example-1m visit covering it: {'start':
 
 ### S190425z
 
-90% area 10183 deg2, wall 11.56 s.
+90% area 10183 deg2, wall 12.62 s.
 
 | Profile | status | visits | cum P_sky | mode |
 | --- | --- | --- | --- | --- |
@@ -56,7 +56,7 @@ Credible level of NGC 4993: 0.383. First example-1m visit covering it: {'start':
 
 ### S200105ae
 
-90% area 7719 deg2, wall 8.72 s.
+90% area 7719 deg2, wall 9.21 s.
 
 | Profile | status | visits | cum P_sky | mode |
 | --- | --- | --- | --- | --- |
@@ -69,9 +69,9 @@ Adopted sigma_M = 1.0 mag (Ascenzi et al. 2019). Field overlap is the Jaccard in
 
 | Event | profile | sigma_M | visits | expected detections | cum P_sky | field overlap |
 | --- | --- | --- | --- | --- | --- | --- |
-| GW170817 | example-1m | 0.25 | 25 | 0.161 | 0.161 | 1.00 |
-| GW170817 | example-1m | 0.5 | 25 | 0.161 | 0.161 | 1.00 |
-| GW170817 | example-1m | 1.0 | 25 | 0.161 | 0.161 | 1.00 |
+| GW170817 | example-1m | 0.25 | 69 | 0.723 | 0.723 | 1.00 |
+| GW170817 | example-1m | 0.5 | 69 | 0.723 | 0.723 | 1.00 |
+| GW170817 | example-1m | 1.0 | 69 | 0.722 | 0.723 | 1.00 |
 | S190425z | example-wide-north | 0.25 | 382 | 0.531 | 0.587 | 0.95 |
 | S190425z | example-wide-north | 0.5 | 383 | 0.508 | 0.588 | 0.96 |
 | S190425z | example-wide-north | 1.0 | 387 | 0.457 | 0.588 | 1.00 |
@@ -91,4 +91,4 @@ Deterministic: True
 
 Malformed inputs: empty=SKYMAP_INVALID_FORMAT, not_fits=SKYMAP_INVALID_FORMAT, truncated=SKYMAP_INVALID_FORMAT, gzip_garbage=SKYMAP_INVALID_FORMAT, gzip_bomb=SKYMAP_TOO_LARGE
 
-Runtime of this report: 80.1 s
+Runtime of this report: 91.6 s

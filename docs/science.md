@@ -137,6 +137,14 @@ constraint window are candidates, and an independent validator rechecks every vi
 Optional filter blocking (`scheduler.filter_block_min`) holds one filter for blocks of that many
 minutes.
 
+`hybrid` fields are galaxy-targeted fields plus tiles where the catalog is incomplete (the primary
+fields), and tiles over the rest of the credible region with origin `fill`. A fill tile is a
+candidate only when no primary field has positive gain at that moment, so galaxies keep their
+priority and the telescope does not sit idle once they are done (decision rule `fill: ...`). In
+1.1.0 and earlier there were no fill tiles: on GW170817 the example 1 m telescope stopped after 25 visits and
+16% of the sky probability, with an hour of usable time left. It now makes 69 visits and covers
+72%, with the same first 25 visits and NGC 4993 still on visit 6.
+
 `tessera.core.optimality` solves a MILP relaxation (time buckets, minimum gaps, capped coverage) whose
 optimum bounds every feasible schedule from above, so greedy / bound is a guaranteed lower bound on
 greedy / optimum. On GW170817 with the example 1 m profile it is ≥ 0.91.

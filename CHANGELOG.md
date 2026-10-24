@@ -3,6 +3,14 @@
 All notable changes to Tessera. Software versions follow semver; the science model has its own
 version (see `docs/science.md`).
 
+## [Unreleased]
+
+### Fixed
+- Hybrid field mode no longer leaves the telescope idle once the galaxy fields are done. The rest
+  of the credible region is added as low-priority `fill` tiles, scheduled only when no galaxy or
+  low-coverage field has gain. GW170817 / example 1 m: 25 → 69 visits, sky probability 16% → 72%,
+  galaxy score and the first 25 visits unchanged. Found by comparing with gwemopt and tilepy.
+
 ## [1.1.0] - 2026-10-24
 
 Science model 1.2.0.

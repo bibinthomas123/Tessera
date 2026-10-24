@@ -138,6 +138,20 @@ def test_gw170817_schedule_is_feasible_and_ordered(gw170817_plan):
     assert all(b >= a - 1e-12 for a, b in zip(cums, cums[1:]))
 
 
+def test_hybrid_fills_idle_time_after_galaxy_fields(gw170817_plan):
+    sched = gw170817_plan.schedules["example-1m@1"]
+    assert sched["field_mode"] == "hybrid"
+    visits = sched["visits"]
+    fill = [v for v in visits if v["origin"] == "fill"]
+    primary = [v for v in visits if v["origin"] != "fill"]
+    # galaxy and low-coverage fields keep priority; fill tiles only use otherwise idle time
+    assert primary and fill and len(visits) > 2 * len(primary)
+    assert all(v["decision"]["rule"].startswith("fill:") for v in fill)
+    assert max(v["seq"] for v in primary) < min(v["seq"] for v in fill)
+    assert sched["summary"]["cum_score_fraction_in_field"] > 0.99
+    assert sched["summary"]["cum_p_sky"] > 0.5
+
+
 def test_three_coverage_metrics_reported_separately(gw170817_plan):
     sm = gw170817_plan.schedules["example-1m@1"]["summary"]
     for k in ("cum_p_sky", "cum_score_fraction_in_field", "cum_expected_detections", "expected_detections_per_hour",

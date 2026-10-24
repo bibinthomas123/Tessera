@@ -300,6 +300,12 @@ class GreedyScheduler:
                     break
                 t = max(tn, t + 60.0 / DAY)
                 continue
+            # Hybrid "fill" tiles compete only when no primary (galaxy or low-coverage) field
+            # has positive gain now, so they use time the galaxy fields would leave idle.
+            primary = [c for c in cands if fs.origin[c[0]] != "fill" and c[10] > 0]
+            if primary and len(primary) < len(cands):
+                cands = primary
+            filling = not primary and any(fs.origin[c[0]] == "fill" for c in cands)
             # Filter blocking (optional): within an open block, only visits in the block's
             # filter compete, as long as any such visit has positive gain.  This trades a
             # little gain for fewer filter changes; revisits whose max_gap lapses meanwhile
@@ -332,6 +338,8 @@ class GreedyScheduler:
                 rule = f"urgency: window closes in {(wclose[pick] - start) * 1440:.0f} min"
             else:
                 rule = "max_gain_rate" if sc.gain_mode == "gain_rate" else "max_gain"
+            if filling and fs.origin[row] == "fill":
+                rule = f"fill: no galaxy or low-coverage field has gain; {rule}"
             if blocked:
                 rule = f"filter_block:{block_filter}; {rule}"
             if filt != block_filter:

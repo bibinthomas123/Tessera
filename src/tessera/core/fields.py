@@ -249,10 +249,18 @@ def build_fields(
         if mode == "hybrid" and rmask is None:
             rmask = np.zeros(len(m), bool)
         sel = _prefilter(m, fc.region_level, gra_, gdec_, fp, fc.max_fields, rmask)
-        for pa in (profile.instrument.footprint.pa_deg if org == "tile" else [None]):
-            add([f"{gids[i]}" + ("" if pa is None or len(profile.instrument.footprint.pa_deg) == 1
-                                  else f"@pa{pa:g}") for i in sel],
-                gra_[sel], gdec_[sel], (gpa[sel] if pa is None else np.full(len(sel), pa)), org)
+        groups = [(sel, org)]
+        if mode == "hybrid":
+            # The rest of the region as low-priority "fill" tiles: the scheduler takes them only
+            # when no galaxy or low-coverage field has positive gain, so the telescope does not
+            # sit idle once the galaxy fields are done.
+            full = _prefilter(m, fc.region_level, gra_, gdec_, fp, fc.max_fields)
+            groups.append((full[~np.isin(full, sel)][:max(0, fc.max_fields - len(sel))], "fill"))
+        for rows, kind in groups:
+            for pa in (profile.instrument.footprint.pa_deg if org == "tile" else [None]):
+                add([f"{gids[i]}" + ("" if pa is None or len(profile.instrument.footprint.pa_deg) == 1
+                                      else f"@pa{pa:g}") for i in rows],
+                    gra_[rows], gdec_[rows], (gpa[rows] if pa is None else np.full(len(rows), pa)), kind)
     if mode in ("galaxy", "hybrid"):
         cra, cdec, cids = _galaxy_fields(fp, pa0, gra, gdec, gS, gid, fc.galaxy_fields_cum_score,
                                          fc.galaxy_fields_max)
