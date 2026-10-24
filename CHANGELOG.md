@@ -3,7 +3,9 @@
 All notable changes to Tessera. Software versions follow semver; the science model has its own
 version (see `docs/science.md`).
 
-## [Unreleased]
+## [1.3.0] - 2026-10-24
+
+Scheduling improvements from the comparison with gwemopt and tilepy. Science model 1.2.0 (unchanged).
 
 ### Changed
 - Expected detections use the best look per pixel instead of treating repeated or overlapping looks
@@ -123,6 +125,7 @@ First public release. Science model 1.1.0.
 - Packaged telescope profiles are illustrative, not facility-validated.
 - The two-group independent rerun (docs/validation-protocol.md) has not yet been performed.
 
+[1.3.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.3.0
 [1.2.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.2.0
 [1.1.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.1.0
 [1.0.1]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.0.1

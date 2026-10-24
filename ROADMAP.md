@@ -7,7 +7,7 @@
 | 3 Live alerts, v1.0 | GCN/SCiMMA/GraceDB, revisions, retractions, adapters | O4 alert replay clean, two-group rerun |
 | 4 Coordination, v1.1 | multi-facility allocation, observation feedback, candidate association | — |
 
-Status: v1.2.0 released (phases 1–3 implemented); phase 4 has sequential coordination, feedback replanning and
+Status: v1.3.0 released (phases 1–3 implemented); phase 4 has sequential coordination, feedback replanning and
 transient association. Done since: tabulated AT2017gfo light curve, sourced reference densities,
 greedy-vs-MILP upper bound, filter-block sequencing, in-process OIDC, Helm chart, `tessera compare`
 and the validation protocol, Rubin/LCO/Treasure Map format checks, GAMA-matched stellar-mass density,
