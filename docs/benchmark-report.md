@@ -1,4 +1,4 @@
-# tessera benchmark report (tessera 1.0.0.dev0, science model 1.1.0)
+# Tessera benchmark report (Tessera 1.0.0, science model 1.1.0)
 
 ## Headline
 
