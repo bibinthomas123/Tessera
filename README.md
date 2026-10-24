@@ -8,7 +8,7 @@
 LVK HEALPix sky map into ranked host galaxies and feasible, validated observing schedules for your
 telescopes. Every result comes with a reproducibility manifest.
 
-![Tessera planning GW170817: credible region, scheduled fields, top galaxies, probability budget and strategy comparison](docs/images/ui-plan-overview.png)
+![Tessera planning GW170817: credible region, scheduled fields, top galaxies, probability budget and strategy comparison](https://raw.githubusercontent.com/bibinthomas123/Tessera/main/docs/images/ui-plan-overview.png)
 
 *GW170817 planned with the public GWTC-1 sky map, a GLADE+ excerpt, and an example 1 m telescope
 profile. NGC 4993 ranks first, and its field is observed on the sixth visit, 10.7 h after merger.*
@@ -35,21 +35,21 @@ profile. NGC 4993 ranks first, and its field is observed on the sixth visit, 10.
 
 <table>
 <tr>
-<td width="50%"><b>Start a plan</b>: upload a sky map (or give a GraceDB URL), pick a catalog, preset and telescopes.<br><img src="docs/images/ui-new-plan.png" alt="New plan form"></td>
-<td width="50%"><b>REST API</b>: versioned <code>/v1</code> endpoints with OpenAPI docs.<br><img src="docs/images/api-docs.png" alt="OpenAPI documentation"></td>
+<td width="50%"><b>Start a plan</b>: upload a sky map (or give a GraceDB URL), pick a catalog, preset and telescopes.<br><img src="https://raw.githubusercontent.com/bibinthomas123/Tessera/main/docs/images/ui-new-plan.png" alt="New plan form"></td>
+<td width="50%"><b>REST API</b>: versioned <code>/v1</code> endpoints with OpenAPI docs.<br><img src="https://raw.githubusercontent.com/bibinthomas123/Tessera/main/docs/images/api-docs.png" alt="OpenAPI documentation"></td>
 </tr>
 </table>
 
 **Ranked host galaxies**, with every score component and flag (downloadable as CSV, ECSV, JSON,
 Parquet or VOTable):
 
-![Ranked galaxy table](docs/images/ui-galaxies.png)
+![Ranked galaxy table](https://raw.githubusercontent.com/bibinthomas123/Tessera/main/docs/images/ui-galaxies.png)
 
 **A validated schedule**, with the decision behind each visit and a per-visit feasibility check.
 The schedule stays `proposed` until a person approves one exact version. It exports to generic
 JSON/CSV, ACP, LCO, Treasure Map, or a Rubin ToO package:
 
-![Schedule with decision log](docs/images/ui-schedule.png)
+![Schedule with decision log](https://raw.githubusercontent.com/bibinthomas123/Tessera/main/docs/images/ui-schedule.png)
 
 ## Quick start
 
