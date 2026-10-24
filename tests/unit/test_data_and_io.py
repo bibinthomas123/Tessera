@@ -249,3 +249,15 @@ def test_cli_ingest(tmp_path):
     assert main(["ingest-catalog", "glade+", str(GLADE_EXCERPT), "--out", str(tmp_path / "snap"),
                  "--upstream-version", "2022-10-31"]) == 0
     assert (tmp_path / "snap" / "snapshot.json").exists()
+
+
+def test_to_time_accepts_common_utc_forms_and_rejects_others():
+    from tessera.core.errors import ConfigError
+    from tessera.core.timeutil import iso, to_time
+
+    for s in ("2017-08-17T22:00:00", "2017-08-17T22:00:00Z", "2017-08-17 22:00 UTC", "2017-08-17 22:00"):
+        assert iso(to_time(s)) == "2017-08-17T22:00:00Z"
+    for bad in ("next tuesday", "22:00", "2017-13-40T99:00"):
+        with pytest.raises(ConfigError) as e:
+            to_time(bad)
+        assert e.value.code == "INVALID_TIME" and e.value.http_status == 422

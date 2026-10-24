@@ -247,3 +247,14 @@ def test_observation_feedback_replans(svc):
     assert r.status_code == 201, r.text
     rp = r.json()["replan"]
     assert rp["plan_key"] != key
+
+
+def test_bad_start_time_is_a_422_not_a_500(svc):
+    client, keys = svc
+    sid = _upload(client, keys["planner"], gaussian_map_bytes([(197.45, -23.38, 2.0, 1.0)], order=8))
+    r = _plan(client, keys["planner"], sid, t_start="next tuesday")
+    assert r.status_code == 422, r.text
+    assert r.json()["code"] == "INVALID_TIME"
+    # human-friendly forms are accepted
+    r = _plan(client, keys["planner"], sid, t_start="2017-08-17 22:00 UTC")
+    assert r.status_code in (200, 201, 202), r.text

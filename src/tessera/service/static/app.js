@@ -28,6 +28,17 @@ function fmt(v, d) {
   return v.toFixed(d == null ? 3 : d);
 }
 function setStatus(t) { $("status").textContent = t; }
+// Progress of a running plan is shown inside the Plan button; messages and errors go below it.
+function setBusy(t) {
+  const b = $("planbtn");
+  b.disabled = true; b.classList.add("busy"); b.setAttribute("aria-busy", "true");
+  $("planlabel").textContent = t;
+}
+function setIdle() {
+  const b = $("planbtn");
+  b.disabled = false; b.classList.remove("busy"); b.removeAttribute("aria-busy");
+  $("planlabel").textContent = "Plan";
+}
 
 async function loadRefs() {
   try {
@@ -58,23 +69,25 @@ $("planform").addEventListener("submit", async (ev) => {
     if ($("skymap").files[0]) fd.append("file", $("skymap").files[0]);
     else if ($("skymapurl").value) fd.append("url", $("skymapurl").value);
     else { setStatus("choose a sky map file or URL"); return; }
-    setStatus("uploading sky map…");
+    setStatus("");
+    setBusy("Uploading…");
     skymapId = (await api("/v1/skymaps", { method: "POST", body: fd })).skymap_id;
     const profiles = [...document.querySelectorAll("#profiles input:checked")].map((i) => i.value);
     const config = { preset: $("preset").value };
     if ($("strategy").value) config.strategy = $("strategy").value;
     if ($("nights").value) config.horizon_nights = parseFloat($("nights").value);
     const body = { skymap_id: skymapId, catalog: $("catalog").value || null, profiles, config, t_start: $("tstart").value || null };
-    setStatus("queued…");
+    setBusy("Queued…");
     let job = await api("/v1/plans", { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } });
     while (job.state === "queued" || job.state === "running") {
-      setStatus(`${job.state}${job.stage ? " — " + job.stage : ""}`);
+      setBusy(job.state === "queued" ? "Queued…" : `Running${job.stage ? " · " + job.stage : "…"}`);
       await new Promise((r) => setTimeout(r, 1500));
       job = await api("/v1/jobs/" + job.job_id);
     }
-    if (job.state !== "succeeded") { setStatus(`job ${job.state}: ${job.error ? job.error.code + " " + (job.error.message || "") : ""}`); return; }
-    setStatus("done"); showPlan(job.plan_key);
-  } catch (e) { setStatus("error: " + e.message); }
+    setIdle();
+    if (job.state !== "succeeded") { setStatus(`Plan ${job.state}: ${job.error ? job.error.code + " " + (job.error.message || "") : ""}`); return; }
+    showPlan(job.plan_key);
+  } catch (e) { setIdle(); setStatus("Error: " + e.message); }
 });
 
 let current = null;

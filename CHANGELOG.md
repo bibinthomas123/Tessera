@@ -3,6 +3,17 @@
 All notable changes to Tessera. Software versions follow semver; the science model has its own
 version (see `docs/science.md`).
 
+## [Unreleased]
+
+### Fixed
+- A start time the server could not parse (for example `2017-08-17 22:00 UTC`) caused an HTTP 500.
+  Times now accept a space instead of `T`, missing seconds, and a trailing `Z` or `UTC`; anything
+  else is rejected with HTTP 422 and code `INVALID_TIME`.
+
+### Changed
+- Web UI: a running plan's progress (Uploading…, Queued…, Running · stage) is shown inside the Plan
+  button, which is disabled until the plan finishes; messages and errors appear below it.
+
 ## [1.3.0] - 2026-10-24
 
 Scheduling improvements from the comparison with gwemopt and tilepy. Science model 1.2.0 (unchanged).

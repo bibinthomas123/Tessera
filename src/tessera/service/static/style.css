@@ -29,7 +29,14 @@ button.secondary { background: transparent; color: var(--accent); border: 1px so
 fieldset { border: 1px solid var(--line); border-radius: 6px; margin: 0 0 12px; }
 .checks { display: flex; flex-wrap: wrap; gap: 8px 18px; }
 .checks label { flex-direction: row; align-items: center; color: var(--fg); }
-.status { color: var(--muted); }
+.status { color: var(--muted); margin: 8px 0 0; min-height: 1.3em; }
+.planbtn { display: inline-flex; align-items: center; gap: 8px; min-width: 9.5em; justify-content: center; }
+.planbtn:disabled { cursor: progress; opacity: 0.85; }
+.planbtn .spin { display: none; width: 0.9em; height: 0.9em; border: 2px solid currentColor;
+  border-right-color: transparent; border-radius: 50%; animation: planspin 0.8s linear infinite; }
+.planbtn.busy .spin { display: inline-block; }
+@keyframes planspin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .planbtn .spin { animation-duration: 2.4s; } }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 canvas { width: 100%; height: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
 table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }

@@ -61,11 +61,31 @@ def environment_info() -> dict[str, Any]:
 
 
 def to_time(t: str | float | Time) -> Time:
+    """Parse a UTC time: an astropy Time, an MJD number, or an ISO-8601 string.
+
+    Strings may use a space instead of ``T``, omit the seconds, and end in ``Z`` or ``UTC``
+    (for example ``2017-08-17 22:00 UTC``).  Anything else raises ConfigError (HTTP 422).
+    """
     if isinstance(t, Time):
         return t
     if isinstance(t, (int, float)):
         return Time(float(t), format="mjd", scale="utc")
-    return Time(str(t).replace("Z", ""), format="isot" if "T" in str(t) else None, scale="utc")
+    import re
+
+    from tessera.core.errors import ConfigError
+
+    s = str(t).strip()
+    s = re.sub(r"\s*(Z|UTC|UT)$", "", s, flags=re.IGNORECASE).strip()
+    m = re.fullmatch(r"(\d{4}-\d{2}-\d{2})(?:[T ](\d{1,2}:\d{2})(:\d{2}(?:\.\d+)?)?)?", s)
+    if not m:
+        raise ConfigError(f"invalid time {t!r}: expected UTC ISO-8601 such as 2017-08-17T22:00:00",
+                          code="INVALID_TIME")
+    date, hm, sec = m.groups()
+    iso_s = f"{date}T{hm or '00:00'}{sec or ':00'}"
+    try:
+        return Time(iso_s, format="isot", scale="utc")
+    except ValueError as exc:
+        raise ConfigError(f"invalid time {t!r}: {exc}", code="INVALID_TIME") from exc
 
 
 def iso(t: Time | float) -> str:

@@ -30,7 +30,8 @@
       <fieldset><legend>Telescope profiles</legend><div id="profiles" class="checks"></div>
         <label class="inline">or upload a profile (YAML/JSON, admin)<input type="file" id="profileupload" accept=".yaml,.yml,.json"></label>
       </fieldset>
-      <button type="submit">Plan</button> <span id="status" class="status" role="status"></span>
+      <button type="submit" id="planbtn" class="planbtn"><span class="spin" aria-hidden="true"></span><span id="planlabel">Plan</span></button>
+      <p id="status" class="status" role="status"></p>
     </form>
   </section>
 
