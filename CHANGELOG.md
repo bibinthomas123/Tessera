@@ -3,14 +3,16 @@
 All notable changes to Tessera. Software versions follow semver; the science model has its own
 version (see `docs/science.md`).
 
-## [Unreleased]
+## [1.2.0] - 2026-10-24
+
+Scheduling fixes found by comparing Tessera with gwemopt and tilepy on 8 events (3 historical,
+5 public O4 alerts) and two telescope classes. Science model 1.2.0 (unchanged).
 
 ### Fixed
 - Hybrid field mode no longer leaves the telescope idle once the galaxy fields are done. The rest
   of the credible region is added as low-priority `fill` tiles, scheduled only when no galaxy or
   low-coverage field has gain. GW170817 / example 1 m: 25 → 69 visits, sky probability 16% → 72%,
-  galaxy score and the first 25 visits unchanged. Found by comparing with gwemopt and tilepy.
-
+  galaxy score and the first 25 visits unchanged.
 - Very large maps no longer lose all their fields. The low-value cut (`fields.low_value_eps`, 1e-4)
   now also requires a field to be below 1% of the best field (`fields.low_value_rel`). Before, every
   tile of a map spread over tens of thousands of deg² fell under the absolute cut: S230529ay with
@@ -93,6 +95,7 @@ First public release. Science model 1.1.0.
 - Packaged telescope profiles are illustrative, not facility-validated.
 - The two-group independent rerun (docs/validation-protocol.md) has not yet been performed.
 
+[1.2.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.2.0
 [1.1.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.1.0
 [1.0.1]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.0.1
 [1.0.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.0.0

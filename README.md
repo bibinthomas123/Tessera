@@ -111,7 +111,7 @@ retractions withdraw schedules automatically.
 | Scheduled visits passing the independent validator | 100% |
 | Deterministic outputs; malformed and oversized inputs rejected with typed errors | yes |
 
-There are 100 tests, covering service integration, alert revision handling and a GW170817 golden
+There are 103 tests, covering service integration, alert revision handling and a GW170817 golden
 regression. CI runs them on Python 3.10, 3.11 and 3.12 and builds the Docker image.
 
 ## Installing
