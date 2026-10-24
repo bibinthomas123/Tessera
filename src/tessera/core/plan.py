@@ -73,9 +73,9 @@ def _vis_for(fs: FieldSet, uid: dict[str, int], vis_all: Visibility) -> Visibili
     """Slice the shared visibility computation down to one field set."""
     idx = np.array([uid.get(str(f), -1) for f in fs.field_id], dtype=int)
     sub = vis_all.subset(np.clip(idx, 0, None))
-    for k in np.flatnonzero(idx < 0):      # rejected at Stage A: never scheduled
+    for k in np.flatnonzero(idx < 0):      # rejected at Stage A, or an offset field computed lazily
         sub.windows[k] = []
-        sub.never_reason[k] = "rejected_stage_a"
+        sub.never_reason[k] = "deferred" if fs.origin[k] == "offset" else "rejected_stage_a"
     return sub
 
 
@@ -335,20 +335,46 @@ def plan(
                                      mode=md, diagnostics=diags if md == primary else Diagnostics())
         timings["fields"] += _time.perf_counter() - t
 
-        # one visibility computation over the union of all candidate fields
+        # one visibility computation over the union of all candidate fields; shifted-grid
+        # "offset" fields are computed later, only if a schedule variant uses them
         t = stage("visibility")
         uid: dict[str, int] = {}
         ura, udec = [], []
+        off: dict[str, tuple[float, float]] = {}
         for fs in fsets.values():
             for i in fs.active():
                 f = str(fs.field_id[i])
-                if f not in uid:
+                if fs.origin[i] == "offset":
+                    off.setdefault(f, (float(fs.ra[i]), float(fs.dec[i])))
+                elif f not in uid:
                     uid[f] = len(ura)
                     ura.append(fs.ra[i])
                     udec.append(fs.dec[i])
         vis_all = compute_visibility(prof, np.asarray(ura), np.asarray(udec), t_start_t, t_end_t,
                                      step_s=cfg.scheduler.grid_step_s, refine_s=cfg.scheduler.refine_s)
         timings["visibility"] += _time.perf_counter() - t
+        off_cache: dict[str, Any] = {}
+
+        def offset_loader(fs: FieldSet, off=off, off_cache=off_cache, prof=prof):
+            def load(target: Visibility) -> None:
+                t_ = _time.perf_counter()
+                if "vis" not in off_cache:
+                    ids = list(off)
+                    off_cache["uid"] = {f: k for k, f in enumerate(ids)}
+                    off_cache["vis"] = compute_visibility(
+                        prof, np.array([off[f][0] for f in ids]), np.array([off[f][1] for f in ids]),
+                        t_start_t, t_end_t, step_s=cfg.scheduler.grid_step_s, refine_s=cfg.scheduler.refine_s)
+                ov, ou = off_cache["vis"], off_cache["uid"]
+                for k in np.flatnonzero(fs.origin == "offset"):
+                    j = ou.get(str(fs.field_id[k]))
+                    if j is None:
+                        continue
+                    target.windows[k] = ov.windows[j]
+                    target.never_reason[k] = ov.never_reason[j]
+                    target.alt[k] = ov.alt[j]
+                    target.az[k] = ov.az[j]
+                timings["visibility"] += _time.perf_counter() - t_
+            return load if off else None
 
         t = stage("schedule")
         results: dict[str, tuple[FieldSet, Visibility, GreedyScheduler, ScheduleResult]] = {}
@@ -360,7 +386,8 @@ def plan(
                     cov = _transfer_coverage(prev_cov, fs, len(S_all))
             sch = GreedyScheduler(fs, vis, cfg, t_start=t_start_t, t_end=t_end_t, t_merger=t_merger,
                                   galaxies_S=S_all, coverage=cov,
-                                  diagnostics=diags if md == primary else Diagnostics())
+                                  diagnostics=diags if md == primary else Diagnostics(),
+                                  load_offset_visibility=offset_loader(fs))
             if md == primary and prior_observations:
                 g_ra = np.asarray(assoc.table["ra"], float) if len(assoc.table) else np.zeros(0)
                 g_dec = np.asarray(assoc.table["dec"], float) if len(assoc.table) else np.zeros(0)

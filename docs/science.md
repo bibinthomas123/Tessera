@@ -168,8 +168,18 @@ visible region can be covered anyway and depth is what is left to buy. Examples:
   without offset fields, and, under the yield objective, with each exposure policy. It keeps the
   variant with the best value of the plan's own objective, and
   `summary.variants_compared` lists them all.
-* *Cost.* Planning takes about 3× longer than 1.2.0 (GW170817, 1 m: 2 s → 6 s). Setting
-  `fields.offset_fill: false` and `scheduler.exposure_choice: depth` restores the 1.1 speed.
+* *Cost, and how it is kept down.*
+  * An offset variant can only differ from the plain one if the plain run had usable idle time:
+    dark, with some regular field of the region up, and nothing with gain to observe. Otherwise
+    the offset variant is skipped.
+  * Offset fields' visibility is computed only when an offset variant runs.
+  * Window edges are refined with Sun and Moon positions interpolated from the 5-minute grid, and
+    every edge is then re-checked with the exact astropy/astroplan constraints. This is 2.5–3.4×
+    faster, and the windows are identical to within one refinement step.
+  * Planning time is close to 1.2.0: S190425z with two telescopes takes 18 s (18 s before),
+    S200105ae 14 s (14 s). GW170817 on the 1 m takes about 4 s (2 s), because its offset variant
+    can genuinely help there and so is tried.
+  * `fields.offset_fill: false` and `scheduler.exposure_choice: depth` give the fastest plans.
 
 **Detection accounting.** Several looks at the same pixel are not independent chances to detect: a
 counterpart too faint for one exposure is too faint for another of the same depth. So each pixel

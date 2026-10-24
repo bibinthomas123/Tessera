@@ -58,7 +58,7 @@ class ScheduleResult:
 class GreedyScheduler:
     def __init__(self, fs: FieldSet, vis: Visibility, cfg: ResolvedConfig, *, t_start: Time, t_end: Time,
                  t_merger: Time | None, galaxies_S: np.ndarray, coverage: Coverage | None = None,
-                 diagnostics: Diagnostics | None = None):
+                 diagnostics: Diagnostics | None = None, load_offset_visibility=None):
         self.fs, self.vis, self.cfg = fs, vis, cfg
         self.prof = fs.profile
         self.sc = cfg.scheduler
@@ -78,9 +78,33 @@ class GreedyScheduler:
             self.objective = "sky_prob"
         n_up = len(fs.upix)
         self.cov = coverage or Coverage(np.zeros(n_up), np.ones(n_up), np.zeros(len(self.S)))
-        # flattened windows for vectorised lookups
+        # offset fields' visibility may be computed lazily, only if an offset variant runs
+        self._load_offset_vis = load_offset_visibility
+        self._index_windows()
+        self.row_of_pix = np.repeat(np.arange(len(fs)), np.diff(fs.pix_ptr))
+        self.row_of_gal = np.repeat(np.arange(len(fs)), np.diff(fs.gal_ptr))
+
+    def _dark_between(self, a: float, b: float) -> bool:
+        """Was [a, b) usable time: dark, with some non-offset field of the region above its limits?
+
+        Offset fields sit between the regular tiles, so if no regular tile (observed or not) is
+        up, the region has set and shifted pointings cannot use the gap either.
+        """
+        jd = self.vis.jd
+        lo, hi = np.searchsorted(jd, a), np.searchsorted(jd, min(b, self.t1))
+        nodes = jd[lo:hi][self.vis.sun_alt[lo:hi] <= self.prof.constraints.sun_alt_max_deg]
+        if not len(nodes):
+            return False
+        reg = self.fs.origin[self.w_f] != "offset"
+        wa, wb = self.w_a[reg], self.w_b[reg]
+        if not len(wa):
+            return False
+        return bool(np.any((wa[:, None] <= nodes[None, :]) & (nodes[None, :] <= wb[:, None])))
+
+    def _index_windows(self) -> None:
+        """Flatten the visibility windows for vectorised lookups."""
         f_idx, a, b = [], [], []
-        for i, ws in enumerate(vis.windows):
+        for i, ws in enumerate(self.vis.windows):
             for (wa, wb) in ws:
                 f_idx.append(i)
                 a.append(wa)
@@ -91,8 +115,6 @@ class GreedyScheduler:
         self._key_scale = 1e5
         self.w_key_a = self.w_f * self._key_scale + (self.w_a - self.t0)
         self.w_key_b = self.w_f * self._key_scale + (self.w_b - self.t0)
-        self.row_of_pix = np.repeat(np.arange(len(fs)), np.diff(fs.pix_ptr))
-        self.row_of_gal = np.repeat(np.arange(len(fs)), np.diff(fs.gal_ptr))
 
     # -- vectorised helpers -------------------------------------------------
     def _window_for(self, rows: np.ndarray, start: np.ndarray, end: np.ndarray) -> np.ndarray:
@@ -223,6 +245,7 @@ class GreedyScheduler:
     # -- main loop ------------------------------------------------------------
     _exposure_mode = "depth"
     _use_offsets = True
+    _idled = False
 
     def run(self) -> ScheduleResult:
         """Schedule, trying policy variants and keeping the best by the plan's own objective.
@@ -246,27 +269,42 @@ class GreedyScheduler:
             modes = ["depth", "yield_rate"] if self._exposure_ladder() != [None] else ["depth"]
         else:
             modes = ["yield_rate" if choice == "yield_rate" else "depth"]
-        offsets = [False, True] if (self.fs.origin == "offset").any() else [False]
-        variants = [(m, o) for o in offsets for m in modes]
+        has_offsets = bool((self.fs.origin == "offset").any())
         key = {"sky_prob": "cum_p_sky", "host_prob": f"cum_{self.fs.host_metric}"}.get(
             self.objective, "cum_expected_detections")
         start_cov = copy.deepcopy(self.cov)
         best = None
         scores: dict[str, float] = {}
-        for k, (mode, use_off) in enumerate(variants):
-            if k:
+        n_run = 0
+
+        def attempt(mode: str, use_off: bool) -> bool:
+            nonlocal best, n_run
+            if n_run:
                 self.cov = copy.deepcopy(start_cov)
+            n_run += 1
             self._exposure_mode, self._use_offsets = mode, use_off
             res = self._run_once()
             val = float(res.summary.get(key, 0.0))
             scores[f"{mode}{'+offset' if use_off else ''}"] = round(val, 6)
             if best is None or val > best[0] * (1 + 1e-9):
                 best = (val, res, mode, use_off)
+            return self._idled
+
+        # Offset fields are the lowest tier: a run with them differs from the run without only
+        # if the latter ever had no field with gain to take (it idled).  Otherwise skip it.
+        idled = {mode: attempt(mode, False) for mode in modes}
+        offset_modes = [m for m in modes if idled[m]] if has_offsets else []
+        if offset_modes and self._load_offset_vis is not None:
+            self._load_offset_vis(self.vis)
+            self._load_offset_vis = None
+            self._index_windows()
+        for mode in offset_modes:
+            attempt(mode, True)
         _, res, mode, use_off = best
         self.cov = res.coverage
         res.summary["exposure_choice"] = mode
         res.summary["offset_fields_used"] = bool(use_off)
-        if len(variants) > 1:
+        if len(scores) > 1:
             res.summary["variants_compared"] = {"metric": key, **scores}
         return res
 
@@ -311,9 +349,11 @@ class GreedyScheduler:
         id_rank = np.argsort(np.argsort(ids, kind="stable"), kind="stable")
         exposure_s = overhead_s = 0.0
 
+        self._idled = False
         while t < self.t1 and len(visits) < sc.max_visits:
             elig = active & ~broken & (step < len(pattern))
             if not elig.any():
+                self._idled = self._idled or self._dark_between(t, self.t1)
                 break
             rows_all = np.flatnonzero(elig)
             # each eligible field's next step decides its filter; evaluate per filter group
@@ -390,6 +430,8 @@ class GreedyScheduler:
                     rel = np.array([last_end[r] + pattern[step[r]].min_gap_min / 1440.0 for r in dep])
                     nxt = np.concatenate([nxt, np.maximum(rel, t + 60.0 / DAY)])
                 tn = float(np.min(nxt)) if len(nxt) else np.inf
+                # idle only if the gap includes dark time (daytime gaps would stay empty anyway)
+                self._idled = self._idled or self._dark_between(t, tn if np.isfinite(tn) else self.t1)
                 if not np.isfinite(tn) or tn >= self.t1:
                     break
                 t = max(tn, t + 60.0 / DAY)
@@ -419,6 +461,7 @@ class GreedyScheduler:
             C = np.array([(c[10], c[11]) for c in cands])
             gains, scores = C[:, 0], C[:, 1]
             if np.max(gains) <= 0:
+                self._idled = self._idled or self._dark_between(t, self.t1)
                 break
             best = float(np.max(scores))
             tol = (scores >= (1.0 - sc.urgency_tolerance) * best) & (gains > 0)

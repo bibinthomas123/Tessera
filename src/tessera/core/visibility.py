@@ -26,7 +26,7 @@ from astroplan import (
 )
 from astroplan.constraints import Constraint, _get_altaz
 from astroplan.moon import moon_illumination
-from astropy.coordinates import AltAz, EarthLocation, SkyCoord, get_body, get_sun
+from astropy.coordinates import CIRS, AltAz, EarthLocation, SkyCoord, get_body, get_sun
 from astropy.time import Time
 
 from tessera.core import timeutil  # noqa: F401  (configures IERS before any transform)
@@ -207,6 +207,107 @@ class Visibility:
         return None
 
 
+class _FastConstraints:
+    """All constraints evaluated on a fixed fine time grid with precomputed Sun and Moon.
+
+    Bisection of window edges only ever evaluates times on the grid ``jd0 + k * dt``, so the
+    ephemerides are computed once (one vectorised call) instead of at every bisection step.
+    Targets are converted to CIRS once; the hour angle comes from the Earth rotation angle.
+    The results agree with the astroplan path to well under a second of time at the edges;
+    every refined edge is then re-checked with the exact constraints (see compute_visibility).
+    """
+
+    def __init__(self, profile: TelescopeProfile, ra: np.ndarray, dec: np.ndarray, jd0: float, dt: float,
+                 n: int, coarse: dict[str, np.ndarray]):
+        c, s = profile.constraints, profile.site
+        self.p = profile
+        loc = EarthLocation.from_geodetic(s.lon_deg * u.deg, s.lat_deg * u.deg, s.elevation_m * u.m)
+        self.jd0, self.dt = jd0, dt
+        # Sun and Moon from the coarse grid, linearly interpolated (they change slowly; the
+        # interpolation error is far below the refinement step, and edges are re-checked exactly)
+        cj = coarse["jd"]
+        jf = jd0 + np.arange(n) * dt
+        tc = Time(cj, format="jd", scale="utc")
+        sun = get_body("sun", tc, location=loc)
+        moon = get_body("moon", tc, location=loc)
+
+        def lin(y):
+            return np.interp(jf, cj, y)
+
+        def ang(y_deg):
+            return np.interp(jf, cj, np.unwrap(np.radians(y_deg)))
+
+        self.sun_alt = lin(coarse["sun_alt"])
+        self.moon_alt = lin(coarse["moon_alt"])
+        self.illum = lin(coarse["moon_illum"])
+        self.sun_ra, self.sun_dec = ang(sun.ra.deg), np.radians(lin(sun.dec.deg))
+        self.moon_ra, self.moon_dec = ang(moon.ra.deg), np.radians(lin(moon.dec.deg))
+        t = Time(jf, format="jd", scale="utc")
+        self.era = t.earth_rotation_angle(s.lon_deg * u.deg).deg            # local ERA
+        self.last_h = t.sidereal_time("apparent", longitude=s.lon_deg * u.deg).hour
+        mid = Time(jd0 + 0.5 * (n - 1) * dt, format="jd", scale="utc")
+        cirs = SkyCoord(ra=np.asarray(ra) * u.deg, dec=np.asarray(dec) * u.deg).transform_to(CIRS(obstime=mid))
+        self.ra_c, self.dec_c = np.radians(cirs.ra.deg), np.radians(cirs.dec.deg)
+        self.ra, self.dec = np.radians(np.asarray(ra, float)), np.radians(np.asarray(dec, float))
+        self.lat = np.radians(s.lat_deg)
+        self.c = c
+        self.mask = None
+        if c.horizon_mask:
+            pts = np.asarray(sorted(c.horizon_mask), float)
+            if pts[0, 0] > 0:
+                pts = np.vstack([[0.0, pts[-1, 1]], pts])
+            if pts[-1, 0] < 360:
+                pts = np.vstack([pts, [360.0, pts[0, 1]]])
+            self.mask = pts
+        self.windows = ([(Time(w.start.replace("Z", "")).jd, Time(w.end.replace("Z", "")).jd)
+                         for w in profile.windows] if profile.windows else None)
+
+    def index(self, jd: np.ndarray) -> np.ndarray:
+        return np.rint((np.asarray(jd) - self.jd0) / self.dt).astype(np.int64)
+
+    @staticmethod
+    def _sep(ra1, dec1, ra2, dec2) -> np.ndarray:
+        x = np.sin(dec1) * np.sin(dec2) + np.cos(dec1) * np.cos(dec2) * np.cos(ra1 - ra2)
+        return np.degrees(np.arccos(np.clip(x, -1.0, 1.0)))
+
+    def __call__(self, f: np.ndarray, k: np.ndarray) -> np.ndarray:
+        c = self.c
+        h = np.radians(self.era[k]) - self.ra_c[f]
+        sd, cd = np.sin(self.dec_c[f]), np.cos(self.dec_c[f])
+        sl, cl = np.sin(self.lat), np.cos(self.lat)
+        alt = np.degrees(np.arcsin(np.clip(sl * sd + cl * cd * np.cos(h), -1.0, 1.0)))
+        ok = self.sun_alt[k] <= c.sun_alt_max_deg
+        ok &= (alt >= c.min_alt()) & (alt <= c.alt_max_deg)
+        with np.errstate(divide="ignore"):
+            ok &= (alt > 0) & (1.0 / np.sin(np.radians(alt)) <= c.airmass_max)
+        if self.mask is not None:
+            az = np.degrees(np.arctan2(-cd * np.sin(h), sd * cl - cd * np.cos(h) * sl)) % 360.0
+            ok &= alt >= np.interp(az, self.mask[:, 0], self.mask[:, 1])
+        m = self.p.mount
+        if m.type == "equatorial" and (m.ha_limits_h[0] > -12 or m.ha_limits_h[1] < 12):
+            ha = (self.last_h[k] - np.degrees(self.ra[f]) / 15.0 + 12.0) % 24.0 - 12.0
+            ok &= (ha >= m.ha_limits_h[0]) & (ha <= m.ha_limits_h[1])
+        if m.dec_limits_deg[0] > -90 or m.dec_limits_deg[1] < 90:
+            d = np.degrees(self.dec[f])
+            ok &= (d >= m.dec_limits_deg[0]) & (d <= m.dec_limits_deg[1])
+        if c.sun_sep_min_deg > 0:
+            ok &= self._sep(self.sun_ra[k], self.sun_dec[k], self.ra[f], self.dec[f]) >= c.sun_sep_min_deg
+        ms = c.moon_sep()
+        if ms.by_illumination or ms.constant:
+            ok &= (self._sep(self.moon_ra[k], self.moon_dec[k], self.ra[f], self.dec[f])
+                   >= ms.min_sep(self.illum[k]))
+        if c.moon_illum_max < 1.0:
+            lim = self.illum[k] <= c.moon_illum_max
+            ok &= (lim | (self.moon_alt[k] < 0)) if c.moon_illum_only_when_up else lim
+        if self.windows:
+            jd = self.jd0 + k * self.dt
+            w = np.zeros(len(k), bool)
+            for a, b in self.windows:
+                w |= (jd >= a) & (jd <= b)
+            ok &= w
+        return ok
+
+
 def _runs(mask: np.ndarray) -> list[tuple[int, int]]:
     """Inclusive (start, end) index runs of True."""
     if not mask.any():
@@ -303,17 +404,42 @@ def compute_visibility(
 
     rf, rlo, rhi = np.asarray(rise_f, int), np.asarray(rise_lo), np.asarray(rise_hi)   # lo false, hi true
     ff, flo, fhi = np.asarray(fall_f, int), np.asarray(fall_lo), np.asarray(fall_hi)   # lo true, hi false
+    # Bisection mid-points all lie on the grid jd[0] + k * dt (dt = step / 2^n_iter): evaluate them
+    # with precomputed ephemerides, then re-check every refined edge with the exact constraints.
+    dt = step_s / 2 ** n_iter / 86400.0
+    fast = (_FastConstraints(profile, ra, dec, float(jd[0]), dt, (nstep - 1) * 2 ** n_iter + 1,
+                             {"jd": jd, "sun_alt": sun_alt, "moon_alt": moon_alt, "moon_illum": moon_illum})
+            if (len(rf) or len(ff)) and n_iter else None)
+
+    def check(fidx: np.ndarray, tjd: np.ndarray) -> np.ndarray:
+        return fast(fidx, fast.index(tjd)) if fast is not None else evaluate(fidx, tjd)
+
     for _ in range(n_iter):
         if len(rf):
             mid = 0.5 * (rlo + rhi)
-            r = evaluate(rf, mid)
+            r = check(rf, mid)
             rhi = np.where(r, mid, rhi)
             rlo = np.where(r, rlo, mid)
         if len(ff):
             mid = 0.5 * (flo + fhi)
-            r = evaluate(ff, mid)
+            r = check(ff, mid)
             flo = np.where(r, mid, flo)
             fhi = np.where(r, fhi, mid)
+    if fast is not None:
+        # exact re-check of the inside endpoint; move inward one fine step until it passes
+        # (the coarse-grid node it started from passed the exact grid check, so this stops)
+        rhi0, flo0 = np.asarray(rise_hi), np.asarray(fall_lo)
+        todo_r, todo_f = np.arange(len(rf)), np.arange(len(ff))
+        for _ in range(2 ** n_iter + 1):
+            if len(todo_r):
+                todo_r = todo_r[~evaluate(rf[todo_r], rhi[todo_r])]
+                rhi[todo_r] = np.minimum(rhi[todo_r] + dt, rhi0[todo_r])
+            if len(todo_f):
+                todo_f = todo_f[~evaluate(ff[todo_f], flo[todo_f])]
+                flo[todo_f] = np.maximum(flo[todo_f] - dt, flo0[todo_f])
+            if not len(todo_r) and not len(todo_f):
+                break
+        tm["edges_moved"] = float(len(todo_r) + len(todo_f))
     tm["refine"] = _time.perf_counter() - t2
 
     rise_map = {(int(f), float(h0)): float(h) for f, h0, h in zip(rf, np.asarray(rise_hi), rhi)}

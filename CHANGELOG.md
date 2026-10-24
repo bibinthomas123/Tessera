@@ -18,9 +18,14 @@ version (see `docs/science.md`).
   sky probability in 13 (tilepy leads S250206dm wide-field by 0.001). With the default settings,
   wide-field expected detections rise, for example S240422ed 0.48 → 0.59 and S190425z 0.45 → 0.51.
 
+- Faster visibility windows: edge bisection uses Sun and Moon positions interpolated from the
+  coarse grid, and every edge is then re-checked with the exact constraints. This is 2.5–3.4×
+  faster, with identical windows to within one refinement step.
+- Offset variants run only when the plain schedule had usable idle time, and offset fields'
+  visibility is computed only then. Planning time is back near 1.2.0: S190425z with two
+  telescopes 18 s (1.2.0: 18 s), S200105ae 14 s (14 s), GW170817 on the 1 m 4 s (2 s).
+
 ### Known regressions
-- Planning is about 3× slower (GW170817, 1 m: 2 s → 6 s; S190425z with two telescopes: 18 s → 54 s).
-  `fields.offset_fill: false` and `scheduler.exposure_choice: depth` restore the 1.1 speed.
 - With the wide-field example's g-band revisit pattern, expected detections are slightly lower
   than in 1.2.0 when scored by the same independent evaluator: S190425z 0.454 → 0.452 and
   S200105ae 0.453 → 0.444. The greedy choices under the corrected accounting land slightly worse
