@@ -19,12 +19,12 @@ Typical use::
     result.galaxies.write("galaxies.csv")
 """
 
-__version__ = "1.0.1"
+__version__ = "1.1.0"
 
 #: Version of the science model (formulas, priors, defaults).  Major bumps
 #: change rankings; minor bumps add optional strategies; patch bumps are
 #: numerical fixes within the documented tolerance.
-SCIENCE_MODEL_VERSION = "1.1.0"
+SCIENCE_MODEL_VERSION = "1.2.0"
 
 _LAZY = {
     "plan": ("tessera.core.plan", "plan"),

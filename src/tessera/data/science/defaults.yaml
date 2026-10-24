@@ -4,7 +4,7 @@
 # Any change that alters rankings requires a Science Model Enhancement Proposal (SMEP).
 # Values marked `provisional: true` are pending science review (spec section 12.4)
 # and are flagged in every output that uses them.
-science_model: "1.1.0"
+science_model: "1.2.0"
 
 cosmology: Planck18            # astropy.cosmology realisation used for z -> d_L
 peculiar_velocity_kms: 300     # sigma_v; s_pv = sigma_v / H0
@@ -37,12 +37,14 @@ reference_density:
       Derived by tessera from the published fit (the paper does not quote a total j_K).
     provisional: false
   mstar:
-    value: 3.9e+8              # Msun Mpc^-3 at h = 0.7
+    value: 2.3e+8              # Msun Mpc^-3, H0 = 70, Chabrier (2003) IMF
     source: >-
-      Bell et al. 2003, ApJS 149, 289 (abstract): Omega_* h = 0.0020 +/- 0.0006, an upper limit
-      for an IMF as rich in low-mass stars as galaxy dynamics allow; rho_* = 0.0020 * 2.775e11 h
-      = 5.55e8 h Msun Mpc^-3, 3.9e8 at h = 0.7.
-    provisional: true          # upper limit; IMF consistency with GLADE+ M* not yet verified
+      Baldry et al. 2012, MNRAS 421, 621 (GAMA GSMF at z < 0.06), section 3: "the total stellar
+      mass density is 2.3 x 10^8 Msun Mpc^-3" (H0 = 70, Chabrier IMF). Chosen to match GLADE+:
+      Dalya et al. 2022 (sec. 2.3) derive M* from W1 with the Kettlety et al. 2018 mass-to-light
+      ratios, which are calibrated on GAMA SED masses, so catalog masses and this density share
+      the GAMA/Chabrier mass scale. Integrating Baldry's double-Schechter fit gives 2.24e8.
+    provisional: false
 
 # Light-curve models for detectability (spec 6.1).  Absolute magnitudes (AB).
 light_curves:
@@ -56,7 +58,13 @@ light_curves:
     kind: table
     file: at2017gfo_absmag.csv
     provisional: false
-    sigma_mag: 0.5             # kilonova diversity around AT2017gfo: an assumption, not a measurement
+    sigma_mag: 1.0             # kilonova diversity around AT2017gfo (see sigma_source)
+    sigma_source: >-
+      Ascenzi et al. 2019, MNRAS 486, 672: peak magnitudes of sGRB-associated kilonovae span
+      [-16.8, -12.3] in g and [-16.2, -13.1] in H (95%), i.e. Gaussian sigma ~1.15 and ~0.79 mag;
+      1.0 mag is adopted. Kasliwal et al. 2020 (ApJ 905, 145) likewise find O3 non-detections
+      disfavour all kilonovae being as bright as AT2017gfo. The table keeps AT2017gfo as the
+      reference light curve; sigma expresses the population spread around it.
     filter_map: {U: u, B: g, V: g, R: r, I: i, clear: r, w: r, L: r, Y: y, J: y, H: y, K: y, Ks: y}
   kn-gfo-approx:
     description: >

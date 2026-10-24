@@ -41,7 +41,31 @@ def test_reference_densities_are_sourced():
     j = 0.0116 * 10 ** (-0.4 * (-23.39 - 3.28)) * gamma(-1.09 + 2) * 0.7
     assert j == pytest.approx(k["value"], rel=0.01)
     m = science.reference_density("mstar")
-    assert m["value"] == pytest.approx(0.0020 * 2.775e11 * 0.7, rel=0.01) and m["provisional"]
+    assert m["value"] == pytest.approx(2.3e8) and not m["provisional"] and "Baldry" in m["source"]
+    # Baldry et al. 2012 double-Schechter GSMF (H0 = 70, Chabrier) integrates to the quoted density
+    mstar = 10**10.66
+    rho = mstar * (3.96e-3 * gamma(-0.35 + 2) + 0.79e-3 * gamma(-1.47 + 2))
+    assert rho == pytest.approx(m["value"], rel=0.05)
+
+
+def test_kilonova_diversity_is_sourced():
+    from tessera.core import science
+    from tessera.core.detectability import LightCurve
+
+    lc = science.light_curve("at2017gfo")
+    assert LightCurve.named("at2017gfo").sigma_mag == 1.0 and "Ascenzi" in lc["sigma_source"]
+    # 95% ranges from Ascenzi et al. 2019 bracket the adopted sigma
+    assert (-13.1 - -16.2) / 3.92 < 1.0 < (-12.3 - -16.8) / 3.92
+
+
+def test_kilonova_sigma_widens_efficiency():
+    from tessera.core.detectability import efficiency
+
+    # well above the limit: more diversity loses a little; below the limit: it gains some
+    bright = efficiency([1.5], [0.0], [0.0], 0.5)[0], efficiency([1.5], [0.0], [0.0], 1.0)[0]
+    faint = efficiency([-1.5], [0.0], [0.0], 0.5)[0], efficiency([-1.5], [0.0], [0.0], 1.0)[0]
+    assert bright[1] < bright[0] and faint[1] > faint[0]
+    assert efficiency([0.0], [0.0], [0.3], 1.0)[0] == 0.5
 
 
 # -- filter blocks ------------------------------------------------------------------
@@ -220,6 +244,26 @@ def test_lco_schema_rules(gw170817_plan):
     exp.files["requestgroup.json"] = json.dumps(rg).encode()
     msgs = [i.message for i in ad.validate(exp)]
     assert any("ipp_value" in m for m in msgs) and any("max_airmass" in m for m in msgs)
+
+
+def test_lco_codes_checked_against_snapshot(gw170817_plan):
+    from tessera.adapters.schedulers import get_adapter
+    from tessera.adapters.schedulers.lco import instruments
+
+    snap = instruments()
+    assert "1M0-SCICAM-SINISTRO" in snap["instruments"] and snap["retrieved"]
+    p = load_profile("example-1m")
+    ad = get_adapter("lco")
+    doc = gw170817_plan.schedules["example-1m@1"]
+    assert not [i for i in ad.validate(ad.export(doc, p)) if i.level == "error"]
+    bad_filter = ad.export(doc, p, filter_map={"r": "r"})
+    assert any("not available on 1M0-SCICAM-SINISTRO" in i.message for i in ad.validate(bad_filter))
+    bad_inst = ad.export(doc, p, instrument_type="1M0-NOT-A-CAMERA")
+    assert any("not an LCO instrument" in i.message for i in ad.validate(bad_inst))
+    bad_class = ad.export(doc, p, telescope_class="2m0")
+    assert any("does not match" in i.message for i in ad.validate(bad_class))
+    bad_mode = ad.export(doc, p, acquisition_mode="WCS")
+    assert any("acquisition mode" in i.message for i in ad.validate(bad_mode))
 
 
 def test_treasuremap_token_sent_as_header(gw170817_plan, monkeypatch):

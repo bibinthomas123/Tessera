@@ -1,4 +1,4 @@
-# Science model (science-model 1.1.0)
+# Science model (science-model 1.2.0)
 
 The full specification, with rationale, lives in the design document; this page is the
 implementation reference. Every output records the strategy, preset and science-model version.
@@ -61,7 +61,14 @@ Flags: `NO_DIST`, `PHOTOZ`, `LOW_Z_PV`, `DIST_FROM_Z`, `PIX_NO_DIST`, `W_IMPUTED
 | --- | --- | --- | --- |
 | `lum_B` | 1.98×10⁸ L_B☉ Mpc⁻³ | Kopparapu et al. 2008 | final |
 | `lum_K` | 4.01×10⁸ L_K☉ Mpc⁻³ | Kochanek et al. 2001, Table 3 full-sample fit (K* = −23.39 + 5 log h, α = −1.09, n* = 1.16×10⁻² h³ Mpc⁻³), integrated as n* L* Γ(α+2) with M☉,K = 3.28 | final (derived) |
-| `mstar` | 3.9×10⁸ M☉ Mpc⁻³ | Bell et al. 2003: Ω* h = 0.0020 ± 0.0006, an upper limit for a bottom-heavy IMF | provisional: IMF consistency with GLADE+ masses unverified |
+| `mstar` | 2.3×10⁸ M☉ Mpc⁻³ | Baldry et al. 2012 (GAMA GSMF, z < 0.06, Chabrier IMF), §3; their double-Schechter fit integrates to 2.24×10⁸ | final: same mass scale as GLADE+ (see below) |
+
+**Why GAMA for `mstar`.** GLADE+ (Dalya et al. 2022, §2.3) derives stellar masses from WISE W1
+using the mass-to-light ratios of Kettlety et al. 2018 (M/L_W1 = 0.65 for passive galaxies, a
+colour relation for star-forming ones). Kettlety et al. calibrate those ratios against GAMA SED
+masses, which use a Chabrier IMF. The GAMA stellar mass density is therefore on the same mass
+scale as the catalog masses it is compared with. Bell et al. 2003, used before 1.2.0, is an upper
+limit for a bottom-heavy IMF and was about 1.7 times too high on this scale.
 
 ## Catalog budget
 
@@ -88,11 +95,28 @@ Probability outside the 0.999 region is `p_unassessed`, never attributed to the 
 The distance-modulus distribution in each pixel is summarised by its mean and variance (Gaussian
 approximation).
 
-Default light curve `at2017gfo` (science model 1.1.0): binned medians of the u, g, r, i, z, y
+Default light curve `at2017gfo` (since science model 1.1.0): binned medians of the u, g, r, i, z, y
 detections in Villar et al. 2017 (ApJL 851, L21) Table 3, corrected for E(B−V) = 0.105 and placed at
 39.5 Mpc as in that paper (`data/science/at2017gfo_absmag.csv`; the extracted rows are in
 `at2017gfo_villar2017_ugrizy.csv`). Interpolated in log time; flat before 0.47 d; extrapolated with
-the last measured decline. σ_M = 0.5 mag for kilonova diversity is an assumption, not a measurement.
+the last measured decline.
+
+σ_M = 1.0 mag is the population spread around AT2017gfo. One kilonova cannot measure it; it is taken
+from Ascenzi et al. 2019 (MNRAS 486, 672), whose fits to sGRB-associated kilonovae give 95% peak
+ranges of [−16.8, −12.3] in g and [−16.2, −13.1] in H, i.e. σ ≈ 1.15 and 0.79 mag. Gompertz et al.
+2018 and Kasliwal et al. 2020 (O3 non-detections) also argue against all kilonovae being as bright
+as AT2017gfo. `tessera benchmark` re-plans with σ_M = 0.25, 0.5 and 1.0 (section "Sensitivity to
+kilonova diversity"): GW170817's schedule is unchanged, and for S190425z (155 Mpc) expected
+detections go from 0.53 to 0.46 while about 95% of the scheduled fields stay the same.
+
+## Changes in 1.2.0
+
+* `mstar` reference density 2.3×10⁸ (GAMA, Chabrier; was the Bell et al. 2003 upper limit 3.9×10⁸),
+  matched to the mass scale of GLADE+ stellar masses. Affects the host-posterior uncataloged term
+  and budgets under the `mstar` weight only.
+* `at2017gfo` σ_M 1.0 mag (was an assumed 0.5), sourced from Ascenzi et al. 2019. Lowers expected
+  yields for distant events; schedules change little.
+* GW170817 golden ranking and schedule are byte-identical apart from the science-model version.
 
 ## Changes in 1.1.0
 

@@ -1,0 +1,306 @@
+{
+ "instruments": {
+  "0M4-SCICAM-QHY600": {
+   "class": "0m4",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "OFF"
+     ],
+     "default": "OFF"
+    },
+    "guiding": {
+     "codes": [
+      "OFF",
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {
+    "filters": [
+     "Astrodon-Exo",
+     "B",
+     "H-Alpha",
+     "OIII",
+     "SII",
+     "V",
+     "gp",
+     "ip",
+     "rp",
+     "up",
+     "w",
+     "zs"
+    ]
+   },
+   "type": "IMAGE"
+  },
+  "1M0-SCICAM-SINISTRO": {
+   "class": "1m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "OFF"
+     ],
+     "default": "OFF"
+    },
+    "guiding": {
+     "codes": [
+      "OFF",
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {
+    "filters": [
+     "B",
+     "CN",
+     "I",
+     "R",
+     "U",
+     "V",
+     "Y",
+     "gp",
+     "ip",
+     "rp",
+     "up",
+     "w",
+     "zs"
+    ]
+   },
+   "type": "IMAGE"
+  },
+  "2M0-FLOYDS-SCICAM": {
+   "class": "2m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "BRIGHTEST",
+      "WCS"
+     ],
+     "default": "WCS"
+    },
+    "guiding": {
+     "codes": [
+      "OFF",
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {
+    "slits": [
+     "slit_1.2as",
+     "slit_1.6as",
+     "slit_2.0as",
+     "slit_6.0as"
+    ]
+   },
+   "type": "SPECTRA"
+  },
+  "2M0-SCICAM-MUSCAT": {
+   "class": "2m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "OFF"
+     ],
+     "default": "OFF"
+    },
+    "guiding": {
+     "codes": [
+      "OFF",
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {
+    "narrowband_g_positions": [
+     "in",
+     "out"
+    ],
+    "narrowband_i_positions": [
+     "in",
+     "out"
+    ],
+    "narrowband_r_positions": [
+     "in",
+     "out"
+    ],
+    "narrowband_z_positions": [
+     "in",
+     "out"
+    ]
+   },
+   "type": "IMAGE"
+  },
+  "BLANCO_DECAM": {
+   "class": "4m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "OFF"
+     ],
+     "default": "OFF"
+    },
+    "guiding": {
+     "codes": [
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {
+    "filters": [
+     "g",
+     "i",
+     "r",
+     "u",
+     "z"
+    ]
+   },
+   "type": "IMAGE"
+  },
+  "BLANCO_NEWFIRM": {
+   "class": "4m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "MANUAL"
+     ],
+     "default": "MANUAL"
+    },
+    "guiding": {
+     "codes": [
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {
+    "filters": [
+     "HX",
+     "JX",
+     "KXs"
+    ]
+   },
+   "type": "IMAGE"
+  },
+  "SOAR_GHTS_BLUECAM": {
+   "class": "4m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "MANUAL"
+     ],
+     "default": "MANUAL"
+    },
+    "guiding": {
+     "codes": [
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {},
+   "type": "SPECTRA"
+  },
+  "SOAR_GHTS_BLUECAM_IMAGER": {
+   "class": "4m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "MANUAL"
+     ],
+     "default": "MANUAL"
+    },
+    "guiding": {
+     "codes": [
+      "OFF",
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {
+    "filters": [
+     "g-SDSS",
+     "i-SDSS",
+     "r-SDSS",
+     "u-SDSS"
+    ]
+   },
+   "type": "IMAGE"
+  },
+  "SOAR_GHTS_REDCAM": {
+   "class": "4m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "MANUAL"
+     ],
+     "default": "MANUAL"
+    },
+    "guiding": {
+     "codes": [
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {},
+   "type": "SPECTRA"
+  },
+  "SOAR_GHTS_REDCAM_IMAGER": {
+   "class": "4m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "MANUAL"
+     ],
+     "default": "MANUAL"
+    },
+    "guiding": {
+     "codes": [
+      "OFF",
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {
+    "filters": [
+     "g-SDSS",
+     "i-SDSS",
+     "r-SDSS",
+     "z-SDSS"
+    ]
+   },
+   "type": "IMAGE"
+  },
+  "SOAR_TRIPLESPEC": {
+   "class": "4m0",
+   "modes": {
+    "acquisition": {
+     "codes": [
+      "MANUAL"
+     ],
+     "default": "MANUAL"
+    },
+    "guiding": {
+     "codes": [
+      "ON"
+     ],
+     "default": "ON"
+    }
+   },
+   "optical_elements": {},
+   "type": "SPECTRA"
+  }
+ },
+ "note": "Snapshot of LCO's public instrument list; refresh with tessera.adapters.schedulers.lco.refresh_instruments()",
+ "retrieved": "2026-10-24",
+ "source": "https://observe.lco.global/api/instruments/"
+}

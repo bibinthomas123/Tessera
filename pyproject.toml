@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tessera-gw"
-version = "1.0.1"
+version = "1.1.0"
 description = "Telescope-agnostic gravitational-wave follow-up engine: host-galaxy ranking, feasible schedules, reproducibility manifests."
 readme = "README.md"
 license = { text = "BSD-3-Clause" }
@@ -68,7 +68,7 @@ rubin_too = "tessera.adapters.schedulers.rubin_too:RubinToOAdapter"
 where = ["src"]
 
 [tool.setuptools.package-data]
-tessera = ["data/profiles/*.yaml", "data/science/*.yaml", "data/science/*.csv", "service/static/*", "py.typed"]
+tessera = ["data/profiles/*.yaml", "data/science/*.yaml", "data/science/*.csv", "data/*.json", "service/static/*", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

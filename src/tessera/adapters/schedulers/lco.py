@@ -6,9 +6,11 @@ serializers.py): operator SINGLE|MANY, observation_type NORMAL|RAPID_RESPONSE|TI
 DIRECT|REAL_TIME, ipp_value within the portal's configured range (0.5-2.0 by default),
 names <= 50 characters, ICRS ra/dec in decimal degrees, max_airmass 1-25,
 min_lunar_distance 0-180 deg, acquisition_config and guiding_config always present.
-Instrument types, modes and filter codes come from LCO's configdb and are not verifiable
-offline; the endpoint path and token header follow LCO's client practice and must be
-confirmed before enabling submission.
+Instrument types, telescope classes, filter codes and guiding/acquisition modes are checked
+against a dated snapshot of LCO's public instrument list (data/lco_instruments.json, from
+https://observe.lco.global/api/instruments/); refresh it with ``refresh_instruments()``.
+The submission endpoint and token header still have to be confirmed against LCO's
+validate endpoint with a real account before submission is enabled.
 
 LCO's own scheduler chooses the exact start inside each request window, so
 each visit becomes a request whose window runs from the validated start to
@@ -36,6 +38,36 @@ from tessera.core.errors import AdapterError
 from tessera.core.profile import TelescopeProfile
 
 DEFAULT_URL = "https://observe.lco.global/api/requestgroups/"
+INSTRUMENTS_URL = "https://observe.lco.global/api/instruments/"
+
+
+def instruments() -> dict[str, Any]:
+    """The packaged snapshot of LCO's instrument list."""
+    from importlib import resources
+
+    return json.loads(resources.files("tessera.data").joinpath("lco_instruments.json").read_text())
+
+
+def refresh_instruments(path: str | None = None) -> dict[str, Any]:
+    """Fetch LCO's current public instrument list and write it in the snapshot format."""
+    import httpx
+
+    raw = httpx.get(INSTRUMENTS_URL, timeout=60).json()
+    out: dict[str, Any] = {"source": INSTRUMENTS_URL, "retrieved": datetime.now(timezone.utc).date().isoformat(),
+                           "instruments": {}}
+    for code, v in sorted(raw.items()):
+        oe = v.get("optical_elements", {})
+        out["instruments"][code] = {
+            "class": v.get("class"), "type": v.get("type"),
+            "optical_elements": {k: sorted(e["code"] for e in vals if e.get("schedulable", True))
+                                 for k, vals in oe.items()},
+            "modes": {k: {"codes": sorted(m["code"] for m in mv.get("modes", [])), "default": mv.get("default")}
+                      for k, mv in v.get("modes", {}).items() if k in ("guiding", "acquisition")},
+        }
+    if path:
+        with open(path, "w") as f:
+            f.write(json.dumps(out, indent=1, sort_keys=True) + "\n")
+    return out
 
 
 class LCOAdapter(BaseAdapter):
@@ -126,7 +158,8 @@ class LCOAdapter(BaseAdapter):
                 for ic in c.get("instrument_configs", []):
                     if not ic.get("exposure_time") or ic["exposure_time"] <= 0:
                         issues.append(Issue("error", f"request {i}: exposure_time must be > 0"))
-        return issues
+                issues += _check_instrument(i, c, r.get("location", {}).get("telescope_class"))
+        return _dedupe(issues)
 
     def submit(self, export: Export, approval: Approval | None, schedule: dict[str, Any],
                profile: TelescopeProfile) -> SubmitReceipt:
@@ -144,3 +177,40 @@ class LCOAdapter(BaseAdapter):
                                details={"body": r.text[:2000]})
         body = r.json()
         return SubmitReceipt(self.name, str(body.get("id")), datetime.now(timezone.utc).isoformat(), {"state": body.get("state")})
+
+
+def _check_instrument(i: int, c: dict[str, Any], telescope_class: str | None) -> list[Issue]:
+    """Check codes against the LCO instrument snapshot."""
+    snap = instruments()
+    known = snap["instruments"]
+    it = c.get("instrument_type")
+    if it not in known:
+        return [Issue("error", f"request {i}: instrument_type {it!r} is not an LCO instrument "
+                               f"(snapshot {snap['retrieved']}: {', '.join(sorted(known))})")]
+    info = known[it]
+    out: list[Issue] = []
+    if telescope_class and info.get("class") and telescope_class != info["class"]:
+        out.append(Issue("error", f"request {i}: telescope_class {telescope_class!r} does not match "
+                                  f"{it} (class {info['class']!r})"))
+    filters = info.get("optical_elements", {}).get("filters")
+    for ic in c.get("instrument_configs", []):
+        f = (ic.get("optical_elements") or {}).get("filter")
+        if filters and f not in filters:
+            out.append(Issue("error", f"request {i}: filter {f!r} is not available on {it} "
+                                      f"(valid: {', '.join(filters)}); set adapter_options.lco.filter_map"))
+    for key, kind in (("acquisition_config", "acquisition"), ("guiding_config", "guiding")):
+        mode = (c.get(key) or {}).get("mode")
+        valid = info.get("modes", {}).get(kind, {}).get("codes")
+        if mode and valid and mode not in valid:
+            out.append(Issue("error", f"request {i}: {kind} mode {mode!r} not valid for {it} (valid: {valid})"))
+    return out
+
+
+def _dedupe(issues: list[Issue]) -> list[Issue]:
+    seen, out = set(), []
+    for iss in issues:
+        key = (iss.level, iss.message.split(":", 1)[-1])
+        if key not in seen:
+            seen.add(key)
+            out.append(iss)
+    return out

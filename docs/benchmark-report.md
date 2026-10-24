@@ -1,4 +1,4 @@
-# Tessera benchmark report (Tessera 1.0.0, science model 1.1.0)
+# tessera benchmark report (tessera 1.1.0, science model 1.2.0)
 
 ## Headline
 
@@ -47,21 +47,34 @@ Credible level of NGC 4993: 0.383. First example-1m visit covering it: {'start':
 
 ### S190425z
 
-90% area 10183 deg2, wall 11.91 s.
+90% area 10183 deg2, wall 11.56 s.
 
 | Profile | status | visits | cum P_sky | mode |
 | --- | --- | --- | --- | --- |
-| example-wide-north@1 | proposed | 383 | 0.588 | tessellate |
-| rubin-lsstcam-approx@1 | proposed | 939 | 0.693 | tessellate |
+| example-wide-north@1 | proposed | 387 | 0.588 | tessellate |
+| rubin-lsstcam-approx@1 | proposed | 948 | 0.692 | tessellate |
 
 ### S200105ae
 
-90% area 7719 deg2, wall 8.77 s.
+90% area 7719 deg2, wall 8.72 s.
 
 | Profile | status | visits | cum P_sky | mode |
 | --- | --- | --- | --- | --- |
-| example-wide-north@1 | proposed | 159 | 0.626 | tessellate |
-| rubin-lsstcam-approx@1 | proposed | 713 | 0.795 | tessellate |
+| example-wide-north@1 | proposed | 159 | 0.634 | tessellate |
+| rubin-lsstcam-approx@1 | proposed | 712 | 0.793 | tessellate |
+
+## Sensitivity to kilonova diversity sigma_M
+
+Adopted sigma_M = 1.0 mag (Ascenzi et al. 2019). Field overlap is the Jaccard index of scheduled fields against the adopted value.
+
+| Event | profile | sigma_M | visits | expected detections | cum P_sky | field overlap |
+| --- | --- | --- | --- | --- | --- | --- |
+| GW170817 | example-1m | 0.25 | 25 | 0.161 | 0.161 | 1.00 |
+| GW170817 | example-1m | 0.5 | 25 | 0.161 | 0.161 | 1.00 |
+| GW170817 | example-1m | 1.0 | 25 | 0.161 | 0.161 | 1.00 |
+| S190425z | example-wide-north | 0.25 | 382 | 0.531 | 0.587 | 0.95 |
+| S190425z | example-wide-north | 0.5 | 383 | 0.508 | 0.588 | 0.96 |
+| S190425z | example-wide-north | 1.0 | 387 | 0.457 | 0.588 | 1.00 |
 
 ## Greedy vs. provable upper bound (GW170817, example-1m, 1 night)
 
@@ -78,4 +91,4 @@ Deterministic: True
 
 Malformed inputs: empty=SKYMAP_INVALID_FORMAT, not_fits=SKYMAP_INVALID_FORMAT, truncated=SKYMAP_INVALID_FORMAT, gzip_garbage=SKYMAP_INVALID_FORMAT, gzip_bomb=SKYMAP_TOO_LARGE
 
-Runtime of this report: 64.4 s
+Runtime of this report: 80.1 s

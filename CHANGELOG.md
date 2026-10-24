@@ -3,6 +3,26 @@
 All notable changes to Tessera. Software versions follow semver; the science model has its own
 version (see `docs/science.md`).
 
+## [1.1.0] - 2026-10-24
+
+Science model 1.2.0.
+
+### Changed
+- Stellar-mass reference density is 2.3×10⁸ M☉ Mpc⁻³ (Baldry et al. 2012, GAMA, Chabrier IMF),
+  on the same mass scale as GLADE+ stellar masses (W1 mass-to-light ratios of Kettlety et al. 2018,
+  calibrated on GAMA). It was the Bell et al. 2003 upper limit, 3.9×10⁸. No longer provisional.
+- Kilonova diversity σ_M for `at2017gfo` is 1.0 mag, sourced from Ascenzi et al. 2019 (was an
+  assumed 0.5 mag). Expected yields of distant events go down; schedules change little.
+
+### Added
+- `tessera benchmark` reports the sensitivity of schedules and yields to σ_M (0.25 / 0.5 / 1.0).
+- The LCO adapter checks instrument types, telescope classes, filter codes and guiding/acquisition
+  modes against a dated snapshot of LCO's public instrument list, with `refresh_instruments()`.
+
+### Known limitations
+- Still open: ACP syntax, the LCO submission endpoint, Rubin's operational ToO triggers, facility
+  validation of profiles, and the two-group rerun.
+
 ## [1.0.1] - 2026-10-24
 
 ### Fixed
@@ -50,5 +70,6 @@ First public release. Science model 1.1.0.
 - Packaged telescope profiles are illustrative, not facility-validated.
 - The two-group independent rerun (docs/validation-protocol.md) has not yet been performed.
 
+[1.1.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.1.0
 [1.0.1]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.0.1
 [1.0.0]: https://github.com/bibinthomas123/Tessera/releases/tag/v1.0.0

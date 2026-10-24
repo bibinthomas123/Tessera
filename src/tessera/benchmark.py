@@ -4,6 +4,7 @@ Level 1  synthetic injections: top-k host recovery for 3D strategies vs the 2D
          baseline, prior mismatch, budget accuracy under known incompleteness
 Level 2  historical public events: GW170817 (NGC 4993 rank, earliest visit),
          S190425z (large single-detector map), S200105ae (multi-order NSBH)
+Sensitivity: kilonova diversity sigma_M (0.25 / 0.5 / 1.0 mag) on yield-driven schedules
 Engineering: determinism, latency per stage, feasibility of every schedule,
          malformed-input rejection, edge-case maps
 """
@@ -108,6 +109,50 @@ def historical(data: Path, out: Path) -> dict[str, Any]:
             "budget": {k: p.budget.get(k) for k in ("p_cat", "p_uncat")},
             "diagnostics": [d["code"] for d in p.diagnostics],
         }
+    return res
+
+
+SIGMA_GRID = (0.25, 0.5, 1.0)
+
+
+def sigma_sensitivity(data: Path, out: Path) -> dict[str, Any]:
+    """Re-plan with the at2017gfo light curve at several sigma_M; compare to the adopted value."""
+    import dataclasses
+
+    from tessera.core import detectability
+
+    snap = _snapshot(data, out)
+    adopted = detectability.LightCurve.named("at2017gfo").sigma_mag
+    cases = [("GW170817", "GW170817_skymap.fits.gz", "example-1m", "2017-08-17T22:00:00"),
+             ("S190425z", "S190425z_bayestar.fits.gz", "example-wide-north", "2019-04-25T08:30:00")]
+    original = detectability._load_light_curve
+    res: dict[str, Any] = {"adopted_sigma_mag": adopted, "grid": list(SIGMA_GRID), "events": {}}
+    try:
+        for name, fn, prof, t in cases:
+            if not (data / fn).exists():
+                continue
+            m = load_skymap(data / fn)
+            runs = {}
+            for sig in SIGMA_GRID:
+                def patched(n, _sig=sig):
+                    lc = original(n)
+                    return dataclasses.replace(lc, sigma_mag=_sig) if n == "at2017gfo" else lc
+                detectability._load_light_curve = patched
+                p = plan(m, snap, [prof], PlanConfig(preset="bns", horizon_nights=1), t,
+                         event={"superevent_id": name, "revision": 1})
+                sch = p.schedules[f"{prof}@1"]
+                runs[sig] = {"n_visits": len(sch["visits"]),
+                             "cum_expected_detections": sch["summary"]["cum_expected_detections"],
+                             "cum_p_sky": sch["summary"]["cum_p_sky"],
+                             "fields": [v["field_id"] for v in sch["visits"]]}
+            ref = set(runs[adopted]["fields"]) if adopted in runs else set()
+            for r in runs.values():
+                f = set(r.pop("fields"))
+                r["field_overlap_with_adopted"] = (len(f & ref) / len(f | ref)) if (f | ref) else 1.0
+            res["events"][name] = {"profile": prof, "distmean_mpc": m.meta.header.get("DISTMEAN"),
+                                   "by_sigma": {str(k): v for k, v in runs.items()}}
+    finally:
+        detectability._load_light_curve = original
     return res
 
 
@@ -289,6 +334,7 @@ def run_benchmark(data: Path, out: Path, *, n_injections: int = 200, quick: bool
     hist = historical(data, out)
     inj = injections(out, 20 if quick else n_injections)
     eng = engineering(data, out)
+    sens = sigma_sensitivity(data, out)
     feasible = all(v["status"] != "infeasible" for ev in hist.values()
                    for v in (ev.get("schedules") or {"_": ev.get("schedule", {"status": "proposed"})}).values())
     from tessera import SCIENCE_MODEL_VERSION, __version__
@@ -311,7 +357,7 @@ def run_benchmark(data: Path, out: Path, *, n_injections: int = 200, quick: bool
             "greedy_vs_bound_min_ratio": min((v["ratio_lower_bound"] for v in eng["optimality"].values()
                                               if v.get("ratio_lower_bound") is not None), default=None),
         },
-        "historical": hist, "injections": inj, "engineering": eng,
+        "historical": hist, "injections": inj, "engineering": eng, "sigma_sensitivity": sens,
         "runtime_s": round(time.perf_counter() - t0, 1),
     }
     (out / "report.json").write_text(json.dumps(rep, indent=2, sort_keys=True, default=str))
@@ -356,6 +402,19 @@ def _markdown(rep: dict[str, Any]) -> str:
             for k, v in e["schedules"].items():
                 lines.append(f"| {k} | {v['status']} | {v['n_visits']} | {v['cum_p_sky']:.3f} | {v['field_mode']} |")
             lines.append("")
+    sens = rep.get("sigma_sensitivity", {})
+    if sens.get("events"):
+        lines += ["## Sensitivity to kilonova diversity sigma_M", "",
+                  f"Adopted sigma_M = {sens['adopted_sigma_mag']} mag (Ascenzi et al. 2019). Field overlap is the "
+                  "Jaccard index of scheduled fields against the adopted value.", "",
+                  "| Event | profile | sigma_M | visits | expected detections | cum P_sky | field overlap |",
+                  "| --- | --- | --- | --- | --- | --- | --- |"]
+        for ev, e in sens["events"].items():
+            for sig, r in e["by_sigma"].items():
+                lines.append(f"| {ev} | {e['profile']} | {sig} | {r['n_visits']} | "
+                             f"{r['cum_expected_detections']:.3f} | {r['cum_p_sky']:.3f} | "
+                             f"{r['field_overlap_with_adopted']:.2f} |")
+        lines.append("")
     lines += ["## Greedy vs. provable upper bound (GW170817, example-1m, 1 night)", "",
               "| fields / objective | greedy | upper bound | greedy / bound (>= greedy / optimum) |",
               "| --- | --- | --- | --- |"]

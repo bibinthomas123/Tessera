@@ -111,7 +111,7 @@ retractions withdraw schedules automatically.
 | Scheduled visits passing the independent validator | 100% |
 | Deterministic outputs; malformed and oversized inputs rejected with typed errors | yes |
 
-There are 97 tests, covering service integration, alert revision handling and a GW170817 golden
+There are 100 tests, covering service integration, alert revision handling and a GW170817 golden
 regression. CI runs them on Python 3.10, 3.11 and 3.12 and builds the Docker image.
 
 ## Installing
@@ -126,12 +126,13 @@ unrelated project. The Python package and the command are both `tessera`. Option
   BAYESTAR maps for S190425z and S200105ae, and a GLADE+ excerpt from VizieR VII/291 (Dalya et al.
   2022; please cite it). The AT2017gfo light curve is derived from Villar et al. 2017, Table 3.
 - **Telescope profiles** shipped here are illustrative or approximate, not facility-validated.
-- **Science model 1.1.0.** The light curve and the B- and K-band densities are sourced. The
-  stellar-mass density is an upper limit whose IMF match to GLADE+ masses is unverified, and the
-  kilonova diversity σ_M = 0.5 mag is an assumption.
+- **Science model 1.2.0.** The light curve, all reference densities (B-band, K-band, and stellar
+  mass on the same GAMA/Chabrier scale as GLADE+ masses) and the kilonova diversity σ_M = 1.0 mag
+  are sourced from the literature; see [docs/science.md](docs/science.md).
 - **Adapters.**
   - The Rubin adapter is checked against `rubin-scheduler`.
-  - LCO is checked against the open-source Observation Portal.
+  - LCO is checked against the open-source Observation Portal and a dated snapshot of LCO's
+    public instrument list (instrument types, telescope classes, filters, modes).
   - Treasure Map is checked against its official client.
   - ACP is unverified.
   - Each facility must confirm the format before submission is enabled. See
