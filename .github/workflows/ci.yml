@@ -15,9 +15,32 @@ jobs:
       - run: tessera benchmark --quick --out benchmark-report
       - uses: actions/upload-artifact@v4
         with: {name: "benchmark-${{ matrix.python }}", path: benchmark-report/report.md}
+  wheel:
+    # Test what users install: a built wheel in a clean environment (catches missing package data).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - run: pip install build && python -m build --wheel -o dist .
+      - run: python -m venv /tmp/venv && /tmp/venv/bin/pip install "$(ls dist/*.whl)"
+      - name: plan GW170817 with the installed wheel
+        run: |
+          cd /tmp
+          /tmp/venv/bin/tessera ingest-catalog glade+ "$GITHUB_WORKSPACE/tests/data/glade_plus_gw170817.tsv" \
+            --out /tmp/cat --upstream-version 2022-10-31
+          /tmp/venv/bin/tessera plan --skymap "$GITHUB_WORKSPACE/tests/data/GW170817_skymap.fits.gz" \
+            --catalog /tmp/cat --profile example-1m --preset bns --nights 1 --t-start 2017-08-17T22:00:00 --out /tmp/out
+          test -s "/tmp/out/schedules/example-1m@1.json"
   docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t tessera:ci .
       - run: docker run --rm tessera:ci tessera --version
+      - name: plan GW170817 inside the image
+        run: |
+          docker run --rm -v "$PWD/tests/data:/data-in:ro" tessera:ci sh -c '
+            tessera ingest-catalog glade+ /data-in/glade_plus_gw170817.tsv --out /tmp/cat --upstream-version 2022-10-31 &&
+            tessera plan --skymap /data-in/GW170817_skymap.fits.gz --catalog /tmp/cat --profile example-1m \
+              --preset bns --nights 1 --t-start 2017-08-17T22:00:00 --out /tmp/out'

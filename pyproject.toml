@@ -68,7 +68,7 @@ rubin_too = "tessera.adapters.schedulers.rubin_too:RubinToOAdapter"
 where = ["src"]
 
 [tool.setuptools.package-data]
-tessera = ["data/profiles/*.yaml", "data/science/*.yaml", "data/*.csv", "service/static/*", "py.typed"]
+tessera = ["data/profiles/*.yaml", "data/science/*.yaml", "data/science/*.csv", "service/static/*", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
