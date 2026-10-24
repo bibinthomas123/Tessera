@@ -3,6 +3,29 @@
 All notable changes to Tessera. Software versions follow semver; the science model has its own
 version (see `docs/science.md`).
 
+## [Unreleased]
+
+### Changed
+- Expected detections use the best look per pixel instead of treating repeated or overlapping looks
+  as independent chances (they are not: a counterpart too faint for one exposure stays too faint).
+  Reported yields of revisit patterns go down; the GW170817 golden schedule is unchanged.
+- Half-tile-shifted grids (plus quarter shifts for fields ≥ 2°) are added as lowest-priority
+  `offset` fields (`fields.offset_fill`), and the scheduler compares complete schedules with and
+  without them (and, for the yield objective, with each exposure policy), keeping the best by the
+  plan's objective (`summary.variants_compared`).
+- In the comparison with gwemopt and tilepy (8 events, 2 telescopes, 30 s exposures for all
+  tools), Tessera now gives the most expected detections in 14 of 14 observable cases and the most
+  sky probability in 13 (tilepy leads S250206dm wide-field by 0.001). With the default settings,
+  wide-field expected detections rise, for example S240422ed 0.48 → 0.59 and S190425z 0.45 → 0.51.
+
+### Known regressions
+- Planning is about 3× slower (GW170817, 1 m: 2 s → 6 s; S190425z with two telescopes: 18 s → 54 s).
+  `fields.offset_fill: false` and `scheduler.exposure_choice: depth` restore the 1.1 speed.
+- With the wide-field example's g-band revisit pattern, expected detections are slightly lower
+  than in 1.2.0 when scored by the same independent evaluator: S190425z 0.454 → 0.452 and
+  S200105ae 0.453 → 0.444. The greedy choices under the corrected accounting land slightly worse
+  there.
+
 ## [1.2.0] - 2026-10-24
 
 Scheduling fixes found by comparing Tessera with gwemopt and tilepy on 8 events (3 historical,

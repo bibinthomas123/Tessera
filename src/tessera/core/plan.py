@@ -105,7 +105,7 @@ def _transfer_coverage(prev: list[tuple[FieldSet, Coverage]], fs: FieldSet, n_ga
             pos = np.clip(np.searchsorted(pfs.upix, pix), 0, len(pfs.upix) - 1)
             hit = pfs.upix[pos] == pix
             sky = np.where(hit, np.maximum(sky, pcov.sky[pos]), sky)
-            miss = np.where(hit, miss * pcov.miss[pos], miss)
+            miss = np.where(hit, np.minimum(miss, pcov.miss[pos]), miss)
         gal = np.maximum(gal, pcov.gal)
     return Coverage(sky, miss, gal)
 
@@ -134,7 +134,7 @@ def _credit_observations(fs: FieldSet, cov: Coverage, obs: list[dict[str, Any]],
                                            fs.u_dm_mean[p], fs.u_dm_sd[p], sched.lc.sigma_mag))
         else:
             eff = np.ones(len(p))
-        np.multiply.at(cov.miss, p, 1.0 - w * eff)
+        np.minimum.at(cov.miss, p, 1.0 - w * eff)
         if len(gal_ra):
             cov.gal = np.maximum(cov.gal, fs.footprint.coverage(float(o["ra"]), float(o["dec"]), pa, gal_ra, gal_dec))
         n += 1

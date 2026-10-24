@@ -1,4 +1,4 @@
-# tessera benchmark report (tessera 1.1.0, science model 1.2.0)
+# tessera benchmark report (tessera 1.2.0, science model 1.2.0)
 
 ## Headline
 
@@ -6,7 +6,7 @@
 | --- | --- |
 | ngc4993_rank_vol3d_lumK | 1 |
 | ngc4993_rank_sky2d | 14 |
-| gw170817_plan_wall_s | 2.13 |
+| gw170817_plan_wall_s | 6.41 |
 | top10_recovery_vol3d_lumK | 0.43 |
 | top10_recovery_sky2d | 0.07 |
 | 3d_beats_2d_at_all_k | True |
@@ -15,7 +15,7 @@
 | deterministic | True |
 | malformed_all_rejected | True |
 | edge_cases_all_handled | True |
-| greedy_vs_bound_min_ratio | 0.9125971106265391 |
+| greedy_vs_bound_min_ratio | 0.9072437161190452 |
 
 ## Synthetic injections (top-k host recovery)
 
@@ -47,21 +47,21 @@ Credible level of NGC 4993: 0.383. First example-1m visit covering it: {'start':
 
 ### S190425z
 
-90% area 10183 deg2, wall 18.38 s.
+90% area 10183 deg2, wall 54.2 s.
 
 | Profile | status | visits | cum P_sky | mode |
 | --- | --- | --- | --- | --- |
-| example-wide-north@1 | proposed | 387 | 0.588 | tessellate |
-| rubin-lsstcam-approx@1 | proposed | 940 | 0.693 | tessellate |
+| example-wide-north@1 | proposed | 380 | 0.586 | tessellate |
+| rubin-lsstcam-approx@1 | proposed | 949 | 0.691 | tessellate |
 
 ### S200105ae
 
-90% area 7719 deg2, wall 13.92 s.
+90% area 7719 deg2, wall 47.31 s.
 
 | Profile | status | visits | cum P_sky | mode |
 | --- | --- | --- | --- | --- |
-| example-wide-north@1 | proposed | 159 | 0.634 | tessellate |
-| rubin-lsstcam-approx@1 | proposed | 712 | 0.793 | tessellate |
+| example-wide-north@1 | proposed | 156 | 0.622 | tessellate |
+| rubin-lsstcam-approx@1 | proposed | 708 | 0.782 | tessellate |
 
 ## Sensitivity to kilonova diversity sigma_M
 
@@ -72,15 +72,15 @@ Adopted sigma_M = 1.0 mag (Ascenzi et al. 2019). Field overlap is the Jaccard in
 | GW170817 | example-1m | 0.25 | 69 | 0.723 | 0.723 | 1.00 |
 | GW170817 | example-1m | 0.5 | 69 | 0.723 | 0.723 | 1.00 |
 | GW170817 | example-1m | 1.0 | 69 | 0.722 | 0.723 | 1.00 |
-| S190425z | example-wide-north | 0.25 | 382 | 0.531 | 0.587 | 0.95 |
-| S190425z | example-wide-north | 0.5 | 383 | 0.508 | 0.588 | 0.96 |
-| S190425z | example-wide-north | 1.0 | 387 | 0.457 | 0.588 | 1.00 |
+| S190425z | example-wide-north | 0.25 | 386 | 0.525 | 0.587 | 0.96 |
+| S190425z | example-wide-north | 0.5 | 387 | 0.499 | 0.588 | 0.96 |
+| S190425z | example-wide-north | 1.0 | 380 | 0.443 | 0.586 | 1.00 |
 
 ## Greedy vs. provable upper bound (GW170817, example-1m, 1 night)
 
 | fields / objective | greedy | upper bound | greedy / bound (>= greedy / optimum) |
 | --- | --- | --- | --- |
-| tessellate/sky_prob | 0.8448 | 0.9258 | 0.913 |
+| tessellate/sky_prob | 0.8448 | 0.9312 | 0.907 |
 | tessellate/host_prob | 0.9998 | 1.0000 | 1.000 |
 | galaxy/sky_prob | 0.1551 | 0.1551 | 1.000 |
 | galaxy/host_prob | 0.9917 | 0.9917 | 1.000 |
@@ -91,4 +91,4 @@ Deterministic: True
 
 Malformed inputs: empty=SKYMAP_INVALID_FORMAT, not_fits=SKYMAP_INVALID_FORMAT, truncated=SKYMAP_INVALID_FORMAT, gzip_garbage=SKYMAP_INVALID_FORMAT, gzip_bomb=SKYMAP_TOO_LARGE
 
-Runtime of this report: 121.7 s
+Runtime of this report: 362.9 s

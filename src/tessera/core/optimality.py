@@ -29,7 +29,7 @@ from tessera.core.fields import FieldSet
 from tessera.core.scheduler import DAY, GreedyScheduler
 
 
-def upper_bound(sched: GreedyScheduler, *, bucket_min: float = 30.0, max_fields: int = 250,
+def upper_bound(sched: GreedyScheduler, *, bucket_min: float = 30.0, max_fields: int = 1000,
                 time_limit_s: float = 60.0) -> dict[str, Any]:
     try:
         from ortools.linear_solver import pywraplp

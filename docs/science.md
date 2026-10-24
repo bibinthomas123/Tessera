@@ -157,6 +157,25 @@ visible region can be covered anyway and depth is what is left to buy. Examples:
 
 `schedule.summary.exposure_choice` records which was kept.
 
+**Shifted pointings and schedule variants.**
+
+* *Offset fields.* With `fields.offset_fill` (the default), grids shifted by half a tile are added
+  as lowest-priority `offset` fields. For fields of 2° or more, quarter-tile shifts are added too.
+  Fixed tiles whose centres never become observable leave the visible edge of the region
+  uncovered; shifted pointings reach it.
+* *Scheduling variants.* Taking an offset pointing during a short lull can spoil tiles that become
+  visible later, so the scheduler runs every variant from the same starting coverage: with and
+  without offset fields, and, under the yield objective, with each exposure policy. It keeps the
+  variant with the best value of the plan's own objective, and
+  `summary.variants_compared` lists them all.
+* *Cost.* Planning takes about 3× longer than 1.2.0 (GW170817, 1 m: 2 s → 6 s). Setting
+  `fields.offset_fill: false` and `scheduler.exposure_choice: depth` restores the 1.1 speed.
+
+**Detection accounting.** Several looks at the same pixel are not independent chances to detect: a
+counterpart too faint for one exposure is too faint for another of the same depth. So each pixel
+keeps the best detection probability of any look. Before 1.3 the miss probabilities were multiplied,
+which overstated the yield of overlapping and repeated looks.
+
 **Field limits.** A field is rejected as low value when its P_sky is below `fields.low_value_eps`
 (1e-4) **and** below `fields.low_value_rel` (1%) of the best field's P_sky. Without the relative
 term, very large maps lost almost all their fields: on S230529ay (24,000 deg²) every 0.25 deg² tile

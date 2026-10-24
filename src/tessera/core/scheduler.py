@@ -39,7 +39,9 @@ class Coverage:
     """Coverage state shared across visits (and, in sequential mode, profiles)."""
 
     sky: np.ndarray        # covered weight per raster pixel of this field set
-    miss: np.ndarray       # probability the counterpart is still undetected per raster pixel
+    miss: np.ndarray       # 1 - best detection probability so far per raster pixel (looks are not
+                           # independent: a counterpart too faint for one exposure is too faint for
+                           # another of the same depth, so only the best look counts)
     gal: np.ndarray        # covered weight per galaxy (index into the galaxy table)
 
 
@@ -195,7 +197,7 @@ class GreedyScheduler:
             A = R_FILTER.get(filt, 2.5) * fs.u_ebv[p]
             eff = efficiency(ml[r] - M - A, fs.u_dm_mean[p], fs.u_dm_sd[p], self.lc.sigma_mag)
             pdet = fs.pix_w[m] * np.nan_to_num(eff)
-            np.add.at(out, r, fs.uprob[p] * self.cov.miss[p] * pdet)
+            np.add.at(out, r, fs.uprob[p] * np.clip(pdet - (1.0 - self.cov.miss[p]), 0.0, None))
         return out[rows]
 
     def _commit(self, row: int, filt: str, mlim: float, start: float) -> None:
@@ -207,7 +209,7 @@ class GreedyScheduler:
             M = self.lc.abs_mag(np.full(len(p), start - self.t_merger), filt)
             A = R_FILTER.get(filt, 2.5) * fs.u_ebv[p]
             eff = np.nan_to_num(efficiency(mlim - M - A, fs.u_dm_mean[p], fs.u_dm_sd[p], self.lc.sigma_mag))
-            np.multiply.at(self.cov.miss, p, 1.0 - fs.pix_w[sl] * eff)
+            np.minimum.at(self.cov.miss, p, 1.0 - fs.pix_w[sl] * eff)
         gs = slice(fs.gal_ptr[row], fs.gal_ptr[row + 1])
         np.maximum.at(self.cov.gal, fs.gal_idx[gs], fs.gal_w[gs])
 
@@ -220,40 +222,52 @@ class GreedyScheduler:
 
     # -- main loop ------------------------------------------------------------
     _exposure_mode = "depth"
+    _use_offsets = True
 
     def run(self) -> ScheduleResult:
-        """Schedule; with exposure_choice 'best', keep the better of the depth and yield-rate runs.
+        """Schedule, trying policy variants and keeping the best by the plan's own objective.
 
-        Choosing exposures by gain rate is myopic: it wins when there is more sky than time, but
-        loses when the visible region can be covered anyway and depth is what is left to buy.
-        Running both from the same starting coverage and keeping the higher expected yield is
-        never worse than the depth policy.
+        Two choices are made by comparing complete schedules rather than visit by visit, because
+        the greedy per-visit choice is myopic for both:
+
+        * exposures (yield objective, ``exposure_choice='best'``): depth-solved vs chosen for
+          detections per hour.  The rate choice wins when there is more sky than time and loses
+          when the visible region can be covered anyway;
+        * shifted-grid ``offset`` fields (``fields.offset_fill``): they recover the visible edge
+          of the region when fixed tiles run out, but taken during a short lull they can overlap
+          tiles that become visible later.
+
+        Every variant starts from the same coverage; ties keep the earlier (1.1-like) variant, so
+        the result is never worse than scheduling without these options.
         """
         choice = self.sc.exposure_choice
-        self._exposure_mode = "yield_rate" if choice == "yield_rate" else "depth"
-        if choice != "best" or self.objective != "yield":
-            return self._finish(self._run_once(), self._exposure_mode)
-        self._exposure_mode = "yield_rate"
-        if self._exposure_ladder() == [None]:
-            self._exposure_mode = "depth"
-            return self._finish(self._run_once(), "depth")
+        if choice == "best" and self.objective == "yield":
+            self._exposure_mode = "yield_rate"
+            modes = ["depth", "yield_rate"] if self._exposure_ladder() != [None] else ["depth"]
+        else:
+            modes = ["yield_rate" if choice == "yield_rate" else "depth"]
+        offsets = [False, True] if (self.fs.origin == "offset").any() else [False]
+        variants = [(m, o) for o in offsets for m in modes]
+        key = {"sky_prob": "cum_p_sky", "host_prob": f"cum_{self.fs.host_metric}"}.get(
+            self.objective, "cum_expected_detections")
         start_cov = copy.deepcopy(self.cov)
-        self._exposure_mode = "depth"
-        a = self._run_once()
-        self.cov = copy.deepcopy(start_cov)
-        self._exposure_mode = "yield_rate"
-        b = self._run_once()
-        ya, yb = a.summary.get("cum_expected_detections", 0.0), b.summary.get("cum_expected_detections", 0.0)
-        if yb > ya * (1 + 1e-9):
-            return self._finish(b, "yield_rate", {"depth": ya, "yield_rate": yb})
-        self.cov = a.coverage
-        return self._finish(a, "depth", {"depth": ya, "yield_rate": yb})
-
-    @staticmethod
-    def _finish(res: ScheduleResult, mode: str, compared: dict[str, float] | None = None) -> ScheduleResult:
+        best = None
+        scores: dict[str, float] = {}
+        for k, (mode, use_off) in enumerate(variants):
+            if k:
+                self.cov = copy.deepcopy(start_cov)
+            self._exposure_mode, self._use_offsets = mode, use_off
+            res = self._run_once()
+            val = float(res.summary.get(key, 0.0))
+            scores[f"{mode}{'+offset' if use_off else ''}"] = round(val, 6)
+            if best is None or val > best[0] * (1 + 1e-9):
+                best = (val, res, mode, use_off)
+        _, res, mode, use_off = best
+        self.cov = res.coverage
         res.summary["exposure_choice"] = mode
-        if compared:
-            res.summary["exposure_choice_expected_detections"] = {k: round(v, 6) for k, v in compared.items()}
+        res.summary["offset_fields_used"] = bool(use_off)
+        if len(variants) > 1:
+            res.summary["variants_compared"] = {"metric": key, **scores}
         return res
 
     def _run_once(self) -> ScheduleResult:
@@ -262,6 +276,8 @@ class GreedyScheduler:
         nf = len(fs)
         active = np.zeros(nf, bool)
         active[fs.active()] = True
+        if not self._use_offsets:
+            active[fs.origin == "offset"] = False
         unscheduled: dict[str, str] = {}
         for i in np.flatnonzero(fs.status == "rejected"):
             unscheduled[fs.field_id[i]] = fs.reason[i]
@@ -378,12 +394,17 @@ class GreedyScheduler:
                     break
                 t = max(tn, t + 60.0 / DAY)
                 continue
-            # Hybrid "fill" tiles compete only when no primary (galaxy or low-coverage) field
-            # has positive gain now, so they use time the galaxy fields would leave idle.
-            primary = [c for c in cands if fs.origin[c[0]] != "fill" and c[10] > 0]
-            if primary and len(primary) < len(cands):
-                cands = primary
-            filling = not primary and any(fs.origin[c[0]] == "fill" for c in cands)
+            # Priority tiers: primary fields (galaxy, low-coverage, grid tiles) first; hybrid "fill"
+            # tiles only when no primary field has positive gain now; shifted-grid "offset" tiles
+            # only when neither has.  Lower tiers use time the higher ones would leave idle.
+            filling = False
+            for tier in ({"fill", "offset"}, {"offset"}):
+                upper = [c for c in cands if fs.origin[c[0]] not in tier and c[10] > 0]
+                if upper:
+                    if len(upper) < len(cands):
+                        cands = upper
+                    break
+                filling = True
             # Filter blocking (optional): within an open block, only visits in the block's
             # filter compete, as long as any such visit has positive gain.  This trades a
             # little gain for fewer filter changes; revisits whose max_gap lapses meanwhile
@@ -416,8 +437,8 @@ class GreedyScheduler:
                 rule = f"urgency: window closes in {(wclose[pick] - start) * 1440:.0f} min"
             else:
                 rule = "max_gain_rate" if sc.gain_mode == "gain_rate" else "max_gain"
-            if filling and fs.origin[row] == "fill":
-                rule = f"fill: no galaxy or low-coverage field has gain; {rule}"
+            if filling and fs.origin[row] in ("fill", "offset"):
+                rule = f"{fs.origin[row]}: no higher-priority field has gain; {rule}"
             if blocked:
                 rule = f"filter_block:{block_filter}; {rule}"
             if filt != block_filter:

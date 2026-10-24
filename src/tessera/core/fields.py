@@ -95,27 +95,33 @@ def _read_grid(profile: TelescopeProfile) -> tuple[list[str], np.ndarray, np.nda
     return ids, np.array(ra), np.array(dec), np.array(pa)
 
 
-def _tessellation(fp: InstrumentFootprint, overlap: float, dec_lo: float = -90.0, dec_hi: float = 90.0
-                  ) -> tuple[np.ndarray, np.ndarray, list[str]]:
+def _tessellation(fp: InstrumentFootprint, overlap: float, dec_lo: float = -90.0, dec_hi: float = 90.0,
+                  phase: float = 0.0, phase_ra: float | None = None) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Deterministic all-sky tiling in declination bands.
 
     Tile IDs depend only on the footprint and overlap, so the same sky position
     always gets the same ID; only bands overlapping [dec_lo, dec_hi] are emitted.
+    ``phase`` shifts the grid by that fraction of a tile in declination and ``phase_ra`` (default:
+    the same) in RA; shifted grids get IDs ``o<dec phase><ra phase>...``.
     """
+    pra = phase if phase_ra is None else phase_ra
+    prefix = "t" if not (phase or pra) else f"o{int(round(phase * 100)):02d}{int(round(pra * 100)):02d}_"
     w, h = fp.tile_steps(overlap)
     nb = max(1, int(np.ceil(180.0 / h)))
     hb = 180.0 / nb
     ras, decs, ids = [], [], []
     for b in range(nb):
-        dc = -90.0 + (b + 0.5) * hb
+        dc = -90.0 + (b + 0.5 + phase) * hb
+        if dc >= 90.0:
+            continue
         if dc + hb / 2 + fp.bounding_radius_deg < dec_lo or dc - hb / 2 - fp.bounding_radius_deg > dec_hi:
             continue
         edge = min(89.999, abs(dc) + hb / 2)
         nr = max(1, int(np.ceil(360.0 * np.cos(np.radians(edge)) / w)))
-        rr = (np.arange(nr) + 0.5) * 360.0 / nr
+        rr = np.mod((np.arange(nr) + 0.5 + pra) * 360.0 / nr, 360.0)
         ras.append(rr)
         decs.append(np.full(nr, dc))
-        ids += [f"t{b:04d}_{k:05d}" for k in range(nr)]
+        ids += [f"{prefix}{b:04d}_{k:05d}" for k in range(nr)]
     return np.concatenate(ras), np.concatenate(decs), ids
 
 
@@ -272,18 +278,41 @@ def build_fields(
         if mode == "hybrid" and rmask is None:
             rmask = np.zeros(len(m), bool)
         sel = _prefilter(m, fc.region_level, gra_, gdec_, fp, fc.max_fields, rmask)
-        groups = [(sel, org)]
+        base = (gids, gra_, gdec_, gpa)
+        groups = [(sel, org, base)]
         if mode == "hybrid":
             # The rest of the region as low-priority "fill" tiles: the scheduler takes them only
             # when no galaxy or low-coverage field has positive gain, so the telescope does not
             # sit idle once the galaxy fields are done.
             full = _prefilter(m, fc.region_level, gra_, gdec_, fp, fc.max_fields)
-            groups.append((full[~np.isin(full, sel)][:max(0, fc.max_fields - len(sel))], "fill"))
-        for rows, kind in groups:
+            groups.append((full[~np.isin(full, sel)][:max(0, fc.max_fields - len(sel))], "fill", base))
+        if fc.offset_fill and org == "tile":
+            # The grid shifted by half a tile, also at fill priority.  Fixed tiles whose centres
+            # never become observable leave the visible edge of the region uncovered; shifted
+            # pointings can reach it, using time that would otherwise be idle.
+            # Origin "offset" ranks below "fill": it is used only when no other field has gain.
+            # Quarter-tile shifts too for large fields (>= 2 deg), whose coarse lattice otherwise
+            # leaves much of the visible edge unreachable; small fields are already fine-grained.
+            phases = [(0.5, 0.5), (0.5, 0.0), (0.0, 0.5)]
+            if fp.min_dimension_deg >= 2.0:
+                phases += [(0.25, 0.25), (0.75, 0.75), (0.25, 0.75), (0.75, 0.25)]
+            parts = [_tessellation(fp, fc.overlap, lo, hi, phase=pd, phase_ra=pr) for pd, pr in phases]
+            ora = np.concatenate([p[0] for p in parts])
+            odec = np.concatenate([p[1] for p in parts])
+            oids = [i for p in parts for i in p[2]]
+            oculm = 90.0 - np.abs(odec - profile.site.lat_deg)
+            ok = (oculm >= profile.constraints.min_alt() - fp.bounding_radius_deg) & \
+                (odec >= dlo - fp.bounding_radius_deg) & (odec <= dhi + fp.bounding_radius_deg)
+            oids = [g for g, k in zip(oids, ok) if k]
+            ora, odec = ora[ok], odec[ok]
+            used = sum(len(g[0]) for g in groups)
+            osel = _prefilter(m, fc.region_level, ora, odec, fp, max(0, fc.max_fields - used))
+            groups.append((osel, "offset", (oids, ora, odec, np.full(len(oids), pa0))))
+        for rows, kind, (g_ids, g_ra, g_dec, g_pa) in groups:
             for pa in (profile.instrument.footprint.pa_deg if org == "tile" else [None]):
-                add([f"{gids[i]}" + ("" if pa is None or len(profile.instrument.footprint.pa_deg) == 1
-                                      else f"@pa{pa:g}") for i in rows],
-                    gra_[rows], gdec_[rows], (gpa[rows] if pa is None else np.full(len(rows), pa)), kind)
+                add([f"{g_ids[i]}" + ("" if pa is None or len(profile.instrument.footprint.pa_deg) == 1
+                                       else f"@pa{pa:g}") for i in rows],
+                    g_ra[rows], g_dec[rows], (g_pa[rows] if pa is None else np.full(len(rows), pa)), kind)
     if mode in ("galaxy", "hybrid"):
         cra, cdec, cids = _galaxy_fields(fp, pa0, gra, gdec, gS, gid, fc.galaxy_fields_cum_score,
                                          fc.galaxy_fields_max)
