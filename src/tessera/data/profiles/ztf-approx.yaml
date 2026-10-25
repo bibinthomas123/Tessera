@@ -5,11 +5,14 @@
 #     0.140 deg (E-W): Bellm et al. 2019, PASP 131, 018002, Table 1 (47.7 deg2).
 #   Drives: HA 2.5 deg/s, 0.4 deg/s2; Dec 3 deg/s, 0.5 deg/s2: Dekany et al. 2020, PASP 132,
 #     038001, Section 4.2.  Filter exchange 110 s: as in M4OPT's ZTF mission.
-#   Readout 10 s, settle 10 s, r = 20.4 (5 sigma) in 30 s: gwemopt ZTF.config.
+#   Readout 8 s (Bellm et al. 2019, abstract); median overhead 10.2 s (Bellm et al. 2019, text), so settle 2 s here.
+#   Depths: Bellm et al. 2019, Table 1, 30 s 5-sigma at new moon: g 21.1, r 20.9, i 20.2 (median over a
+#     lunation: 20.8, 20.6, 19.9).  The full-Moon loss dm_full = 0.8 mag is an estimate chosen so the
+#     lunation average is close to the published median; it is not a ZTF measurement.
 #   Constraints: airmass <= 2.5, astronomical twilight, Moon >= 25 deg, |HA| <= 5.95 h: ZTF's
 #     scheduler (ztf_sim QueueManager) as used by M4OPT.  ztf_sim's declination rules depend on
 #     hour angle; here they are simplified conservatively to Dec >= -22 deg.
-#   Extinction coefficient k_r = 0.11 is a typical Palomar value, not a ZTF measurement.
+#   Extinction coefficients (g 0.18, r 0.11, i 0.07) are typical Palomar values, not ZTF measurements.
 schema: tessera.telescope/1
 id: ztf-approx
 version: 1
@@ -21,7 +24,7 @@ slew:
   axes: simultaneous
   axis1: {vmax_dps: 2.5, acc_dps2: 0.4}
   axis2: {vmax_dps: 3.0, acc_dps2: 0.5}
-  settle_s: 10
+  settle_s: 2
   acquisition_s: 0
 instrument:
   name: "ZTF camera"
@@ -45,10 +48,12 @@ instrument:
       - [[-1.7982, 2.0312], [-0.07, 2.0312], [-0.07, 3.755], [-1.7982, 3.755]]
       - [[0.07, 2.0312], [1.7982, 2.0312], [1.7982, 3.755], [0.07, 3.755]]
       - [[1.9382, 2.0312], [3.6664, 2.0312], [3.6664, 3.755], [1.9382, 3.755]]
-  readout_s: 10
+  readout_s: 8
   filter_change_s: 110
   filters:
-    r: {m_ref: 20.4, t_ref_s: 30, k_ext: 0.11}
+    g: {m_ref: 21.1, t_ref_s: 30, k_ext: 0.18, moon: {dm_full: 0.8}}
+    r: {m_ref: 20.9, t_ref_s: 30, k_ext: 0.11, moon: {dm_full: 0.8}}
+    i: {m_ref: 20.2, t_ref_s: 30, k_ext: 0.07, moon: {dm_full: 0.8}}
   exposure: {t_min_s: 30, t_max_s: 300, t_single_max_s: 300}
 constraints:
   sun_alt_max_deg: -18

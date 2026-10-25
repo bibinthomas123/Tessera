@@ -6,9 +6,9 @@ version (see `docs/science.md`).
 ## [Unreleased]
 
 ### Added
-- `ztf-approx` telescope profile built from published values: the 4 × 4 CCD mosaic with chip gaps
-  (Bellm et al. 2019), drive speeds (Dekany et al. 2020), and observing limits from ZTF's
-  scheduler. Planning with it is slower (S190425z: about 50 s) because each pointing is rasterised
+- `ztf-approx` telescope profile built from published values: the 4 × 4 CCD mosaic with chip gaps,
+  g/r/i depths, 8 s readout and 10.2 s median overhead (Bellm et al. 2019), drive speeds
+  (Dekany et al. 2020), and observing limits from ZTF's scheduler. Planning with it is slower (S190425z: about 50 s) because each pointing is rasterised
   as 16 chips.
 
 - The GLADE+ reader also reads the full fixed-width CDS file `gladep.dat` from VizieR (VII/291,
