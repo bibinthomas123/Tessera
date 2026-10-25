@@ -111,6 +111,57 @@ def upper_bound(sched: GreedyScheduler, *, bucket_min: float = 30.0, max_fields:
             "objective": objective, "solver": solver.SolverVersion(), "wall_s": solver.wall_time() / 1000.0}
 
 
+def simple_upper_bound(sched: GreedyScheduler) -> dict[str, Any]:
+    """A provably valid, cheap upper bound for any number of fields (sky_prob / host_prob).
+
+    No schedule can exceed (a) the union coverage of every field that is observable at some time
+    in the horizon, nor (b) the sum of the N largest single-field values, where N is the most
+    visits that fit in the observable time at the shortest possible visit plus minimum overhead.
+    It is looser than the MILP bound and is used where the MILP is too large.
+    """
+    fs: FieldSet = sched.fs
+    vis = sched.vis
+    rows = np.array([i for i in fs.active() if vis.windows[i]], dtype=int)
+    if len(rows) == 0:
+        return {"status": "skipped", "reason": "no visible candidate fields"}
+    if sched.objective == "sky_prob":
+        cov = np.zeros(len(fs.upix))
+        for i in rows:
+            sl = slice(fs.pix_ptr[i], fs.pix_ptr[i + 1])
+            np.maximum.at(cov, fs.pix_idx[sl], fs.pix_w[sl])
+        union = float(np.sum(fs.uprob * cov))
+        single = np.asarray(fs.p_sky, float)[rows]
+    elif sched.objective == "host_prob":
+        cov = np.zeros(len(sched.S))
+        for i in rows:
+            gs = slice(fs.gal_ptr[i], fs.gal_ptr[i + 1])
+            np.maximum.at(cov, fs.gal_idx[gs], fs.gal_w[gs])
+        union = float(np.sum(sched.S * cov) / fs.host_norm) if fs.host_norm > 0 else 0.0
+        single = np.asarray(fs.p_host, float)[rows]
+    else:
+        return {"status": "skipped", "reason": f"bound implemented for sky_prob/host_prob, not {sched.objective}"}
+    # observable time: union of all visible fields' windows
+    iv = sorted((a, b) for i in rows for a, b in vis.windows[i])
+    total, cur_a, cur_b = 0.0, None, None
+    for a, b in iv:
+        if cur_b is None or a > cur_b:
+            if cur_b is not None:
+                total += cur_b - cur_a
+            cur_a, cur_b = a, b
+        else:
+            cur_b = max(cur_b, b)
+    total += (cur_b - cur_a) if cur_b is not None else 0.0
+    filt = fs.profile.visit_pattern[0].filter
+    starts = np.array([vis.windows[i][0][0] for i in rows])
+    n_exp, t_single = sched._exposures(rows, starts, filt)
+    dur = n_exp * (t_single + fs.profile.instrument.readout_s) / DAY
+    min_cost = float(dur.min()) + (fs.profile.slew.settle_s + fs.profile.slew.acquisition_s) / DAY
+    n_max = int(np.floor(total / min_cost)) + 1 if min_cost > 0 else len(rows)
+    top = float(np.sort(single)[::-1][:n_max].sum())
+    return {"status": "valid", "simple_upper_bound": min(union, top), "union_bound": union,
+            "top_n_bound": top, "n_max_visits": n_max, "n_visible_fields": int(len(rows))}
+
+
 def greedy_vs_bound(fs: FieldSet, vis, cfg, *, t_start, t_end, t_merger, galaxies_S, objective: str = "sky_prob",
                     **kw: Any) -> dict[str, Any]:
     """Run greedy-v1 with ``objective`` and compare with the MILP upper bound."""
@@ -124,4 +175,11 @@ def greedy_vs_bound(fs: FieldSet, vis, cfg, *, t_start, t_end, t_merger, galaxie
     out = {"greedy": achieved, **ub}
     if ub.get("upper_bound"):
         out["ratio_lower_bound"] = achieved / ub["upper_bound"] if ub["upper_bound"] > 0 else None
+    sb = simple_upper_bound(GreedyScheduler(fs, vis, cfg2, t_start=t_start, t_end=t_end, t_merger=t_merger,
+                                            galaxies_S=galaxies_S))
+    if sb.get("simple_upper_bound"):
+        out["simple_upper_bound"] = sb["simple_upper_bound"]
+        out["ratio_simple_bound"] = achieved / sb["simple_upper_bound"]
+        out["simple_bound_detail"] = {k: sb[k] for k in ("union_bound", "top_n_bound", "n_max_visits",
+                                                           "n_visible_fields")}
     return out

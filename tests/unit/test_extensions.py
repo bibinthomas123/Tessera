@@ -115,6 +115,9 @@ def test_greedy_within_bound(gw170817_map, glade_snapshot):
     assert r["status"] == "optimal"
     assert r["greedy"] <= r["upper_bound"] + 1e-9          # a valid bound is never beaten
     assert r["ratio_lower_bound"] >= 0.9                   # spec target: >= 90% of optimum
+    # the simple bound is valid (never beaten) and never tighter than the MILP bound
+    assert r["greedy"] <= r["simple_upper_bound"] + 1e-9
+    assert r["simple_upper_bound"] >= r["upper_bound"] - 1e-6
 
 
 # -- OIDC ---------------------------------------------------------------------------
