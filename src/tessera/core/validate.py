@@ -101,7 +101,7 @@ def validate_visits(visits: list[dict[str, Any]], profile: TelescopeProfile, *, 
         checks["horizon_mask"] = alt >= np.interp(np.mod(az, 360), mask[:, 0], mask[:, 1]) - TOL_DEG
     m = profile.mount
     if m.type == "equatorial":
-        checks["hour_angle"] = (ha_h >= m.ha_limits_h[0] - 1e-4) & (ha_h <= m.ha_limits_h[1] + 1e-4)
+        checks["hour_angle"] = m.ha_ok(ha_h, dec)
     checks["declination"] = (dec >= m.dec_limits_deg[0]) & (dec <= m.dec_limits_deg[1])
     if c.sun_sep_min_deg > 0:
         checks["sun_separation"] = sun_sep >= c.sun_sep_min_deg - TOL_DEG

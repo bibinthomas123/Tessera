@@ -14,7 +14,14 @@ version (see `docs/science.md`).
 - The GLADE+ reader also reads the full fixed-width CDS file `gladep.dat` from VizieR (VII/291,
   23.2 million rows; about 3 minutes to convert), detected automatically.
 
+- Mount `ha_limits_by_dec`: hour-angle windows that apply only south of a given declination,
+  enforced in visibility, the fast refinement and the validator.
+
 ### Fixed
+- `ztf-approx` used rules stricter than ZTF's own scheduler: declinations south of −22° are now
+  allowed down to −45° with HA ≥ −17.6° (ztf_sim QueueManager), and the night uses 12° twilight
+  (ztf_sim Scheduler.py) instead of astronomical twilight. Both were found while checking the
+  comparison harness, and would otherwise have penalised other tools' valid ZTF visits.
 - The scheduler ended the night early when nothing observable *at that moment* had gain, even if
   fields rose later. It now jumps to the next window opening, or the next due revisit, and stops
   only when none remain. Example: S240422ed on the wide-field example observed until 04:12 UTC

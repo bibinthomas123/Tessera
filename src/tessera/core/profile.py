@@ -48,10 +48,20 @@ class Axis(_Strict):
     acc_dps2: float = Field(gt=0, le=50)
 
 
+class DecHARule(_Strict):
+    """Fields south of ``dec_below_deg`` must have hour angle within [ha_min_h, ha_max_h]."""
+
+    dec_below_deg: float = Field(ge=-90, le=90)
+    ha_min_h: float = Field(-12.0, ge=-12, le=12)
+    ha_max_h: float = Field(12.0, ge=-12, le=12)
+
+
 class Mount(_Strict):
     type: Literal["equatorial", "altaz"] = "equatorial"
     ha_limits_h: tuple[float, float] = (-12.0, 12.0)
     dec_limits_deg: tuple[float, float] = (-90.0, 90.0)
+    ha_limits_by_dec: list[DecHARule] = Field(default_factory=list,
+                                              description="extra hour-angle windows for southern declinations")
     park: dict[str, float] = Field(default_factory=lambda: {"ha_h": 0.0, "dec_deg": 0.0})
 
     @model_validator(mode="after")
@@ -60,7 +70,23 @@ class Mount(_Strict):
             raise ValueError("ha_limits_h must satisfy -12 <= lo < hi <= 12")
         if not (-90 <= self.dec_limits_deg[0] < self.dec_limits_deg[1] <= 90):
             raise ValueError("dec_limits_deg must satisfy -90 <= lo < hi <= 90")
+        for r in self.ha_limits_by_dec:
+            if r.ha_min_h >= r.ha_max_h:
+                raise ValueError("ha_limits_by_dec: ha_min_h must be < ha_max_h")
         return self
+
+    def ha_ok(self, ha_h, dec_deg) -> np.ndarray:
+        """Hour-angle limits, including declination-dependent ones (broadcasts)."""
+        ha_h, dec_deg = np.asarray(ha_h, float), np.asarray(dec_deg, float)
+        ok = (ha_h >= self.ha_limits_h[0] - 1e-4) & (ha_h <= self.ha_limits_h[1] + 1e-4)
+        for r in self.ha_limits_by_dec:
+            south = dec_deg < r.dec_below_deg
+            ok &= ~south | ((ha_h >= r.ha_min_h - 1e-4) & (ha_h <= r.ha_max_h + 1e-4))
+        return ok
+
+    @property
+    def has_ha_limits(self) -> bool:
+        return self.ha_limits_h[0] > -12 or self.ha_limits_h[1] < 12 or bool(self.ha_limits_by_dec)
 
 
 class Slew(_Strict):

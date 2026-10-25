@@ -272,6 +272,8 @@ def test_ztf_profile_matches_published_camera():
     assert len(p.instrument.footprint.chips) == 16                 # 4 x 4 CCD mosaic
     assert abs(fp.area_deg2 - 47.7) < 0.2                          # Bellm et al. 2019: 47 deg2 with gaps
     assert p.mount.ha_limits_h == (-5.95, 5.95) and p.constraints.airmass_max == 2.5
+    # ztf_sim positional rules: south of -22 deg only west of HA -17.6 deg
+    assert p.mount.ha_ok(-2.0, -10.0) and not p.mount.ha_ok(-2.0, -30.0) and p.mount.ha_ok(0.5, -30.0)
 
 
 def test_glade_plus_cds_fixed_width_reader():

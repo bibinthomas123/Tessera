@@ -9,9 +9,11 @@
 #   Depths: Bellm et al. 2019, Table 1, 30 s 5-sigma at new moon: g 21.1, r 20.9, i 20.2 (median over a
 #     lunation: 20.8, 20.6, 19.9).  The full-Moon loss dm_full = 0.8 mag is an estimate chosen so the
 #     lunation average is close to the published median; it is not a ZTF measurement.
-#   Constraints: airmass <= 2.5, astronomical twilight, Moon >= 25 deg, |HA| <= 5.95 h: ZTF's
-#     scheduler (ztf_sim QueueManager) as used by M4OPT.  ztf_sim's declination rules depend on
-#     hour angle; here they are simplified conservatively to Dec >= -22 deg.
+#   Constraints: airmass <= 2.5, Moon >= 25 deg, |HA| <= 5.95 h: ZTF's scheduler (ztf_sim
+#     QueueManager) as used by M4OPT.  Night = Sun below -12 deg, as in ztf_sim's Scheduler.py and
+#     TelescopeStateMachine.py (12-degree twilight); M4OPT uses astronomical twilight instead.  Its positional rules reduce to:
+#     Dec >= -22 deg at any allowed hour angle; -45 <= Dec < -22 deg only with HA >= -17.6 deg
+#     (-1.173 h); Dec <= 87.5 deg.
 #   Extinction coefficients (g 0.18, r 0.11, i 0.07) are typical Palomar values, not ZTF measurements.
 schema: tessera.telescope/1
 id: ztf-approx
@@ -19,7 +21,12 @@ version: 1
 description: "Approximate ZTF (47 deg2 mosaic with chip gaps) from published parameters (not ZTF-validated)"
 validation: {level: community, overheads: approximate, notes: "built from Bellm+2019, Dekany+2020, gwemopt and M4OPT values"}
 site: {name: "Palomar", lat_deg: 33.3563, lon_deg: -116.8648, elevation_m: 1742, timezone: America/Los_Angeles}
-mount: {type: equatorial, ha_limits_h: [-5.95, 5.95], dec_limits_deg: [-22, 87.5], park: {ha_h: 0, dec_deg: 33}}
+mount:
+  type: equatorial
+  ha_limits_h: [-5.95, 5.95]
+  dec_limits_deg: [-45, 87.5]
+  ha_limits_by_dec: [{dec_below_deg: -22, ha_min_h: -1.1733, ha_max_h: 5.95}]
+  park: {ha_h: 0, dec_deg: 33}
 slew:
   axes: simultaneous
   axis1: {vmax_dps: 2.5, acc_dps2: 0.4}
@@ -56,7 +63,7 @@ instrument:
     i: {m_ref: 20.2, t_ref_s: 30, k_ext: 0.07, moon: {dm_full: 0.8}}
   exposure: {t_min_s: 30, t_max_s: 300, t_single_max_s: 300}
 constraints:
-  sun_alt_max_deg: -18
+  sun_alt_max_deg: -12
   airmass_max: 2.5
   moon_sep_min_deg: 25
 visit_pattern: [{filter: r}]

@@ -57,14 +57,17 @@ class HorizonMaskConstraint(Constraint):
 
 
 class HourAngleConstraint(Constraint):
-    def __init__(self, lo_h: float, hi_h: float):
-        self.lo, self.hi = lo_h, hi_h
+    """Hour-angle limits of an equatorial mount, optionally depending on declination."""
+
+    def __init__(self, mount):
+        self.mount = mount
 
     def compute_constraint(self, times, observer, targets):
         lst = observer.local_sidereal_time(times).hour
         ra = targets.ra.hour
         ha = (lst - ra + 12.0) % 24.0 - 12.0
-        return (ha >= self.lo) & (ha <= self.hi)
+        dec = np.broadcast_to(targets.dec.deg, np.shape(ha))
+        return self.mount.ha_ok(ha, dec)
 
 
 class DeclinationConstraint(Constraint):
@@ -129,8 +132,8 @@ def build_constraints(profile: TelescopeProfile) -> list[tuple[str, Constraint]]
     if c.horizon_mask:
         out.append(("horizon_mask", HorizonMaskConstraint(c.horizon_mask)))
     m = profile.mount
-    if m.type == "equatorial" and (m.ha_limits_h[0] > -12 or m.ha_limits_h[1] < 12):
-        out.append(("hour_angle", HourAngleConstraint(*m.ha_limits_h)))
+    if m.type == "equatorial" and m.has_ha_limits:
+        out.append(("hour_angle", HourAngleConstraint(m)))
     if m.dec_limits_deg[0] > -90 or m.dec_limits_deg[1] < 90:
         out.append(("declination", DeclinationConstraint(*m.dec_limits_deg)))
     if c.sun_sep_min_deg > 0:
@@ -284,9 +287,9 @@ class _FastConstraints:
             az = np.degrees(np.arctan2(-cd * np.sin(h), sd * cl - cd * np.cos(h) * sl)) % 360.0
             ok &= alt >= np.interp(az, self.mask[:, 0], self.mask[:, 1])
         m = self.p.mount
-        if m.type == "equatorial" and (m.ha_limits_h[0] > -12 or m.ha_limits_h[1] < 12):
+        if m.type == "equatorial" and m.has_ha_limits:
             ha = (self.last_h[k] - np.degrees(self.ra[f]) / 15.0 + 12.0) % 24.0 - 12.0
-            ok &= (ha >= m.ha_limits_h[0]) & (ha <= m.ha_limits_h[1])
+            ok &= m.ha_ok(ha, np.degrees(self.dec[f]))
         if m.dec_limits_deg[0] > -90 or m.dec_limits_deg[1] < 90:
             d = np.degrees(self.dec[f])
             ok &= (d >= m.dec_limits_deg[0]) & (d <= m.dec_limits_deg[1])
