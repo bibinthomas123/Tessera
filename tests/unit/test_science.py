@@ -175,3 +175,17 @@ def test_crossmatch_agreement_with_ligo_skymap(s200105ae_map):
     np.testing.assert_allclose(exact_at_node, res.probdensity_vol, rtol=1e-9)
     exact = m.probdensity[ours] * m.distnorm[ours] * gauss(d, m.distmu[ours], m.distsigma[ours])
     assert np.median(np.abs(exact / res.probdensity_vol - 1)) < 0.05
+
+
+def test_tabulated_luminosity_distance_matches_astropy():
+    import numpy as np
+    from astropy.cosmology import Planck18
+
+    from tessera.core.association import _ddl_dz, _redshift_to_distance
+
+    z = np.geomspace(1e-6, 2.99, 2000)
+    assert np.max(np.abs(_redshift_to_distance(z) / Planck18.luminosity_distance(z).value - 1)) < 1e-9
+    h = 1e-6
+    num = (Planck18.luminosity_distance(z + h).value - Planck18.luminosity_distance(z - h / 2).value) / (1.5 * h)
+    assert np.max(np.abs(_ddl_dz(z[z > 1e-3]) / num[z > 1e-3] - 1)) < 1e-5
+    assert np.isnan(_redshift_to_distance(np.array([np.nan, -1.0]))).all()

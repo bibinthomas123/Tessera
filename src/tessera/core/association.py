@@ -15,6 +15,7 @@ maps whose distance prior is proportional to r^2 (BAYESTAR).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 import numpy as np
@@ -42,20 +43,48 @@ class AssociationResult:
         return np.asarray(self.table["tier"]) == 1
 
 
+_Z_MAX_TABLE = 3.0
+
+
+@lru_cache(maxsize=1)
+def _dl_table() -> tuple[np.ndarray, np.ndarray]:
+    """Planck18 luminosity distance on a dense redshift grid, computed once per process.
+
+    Planck18 includes massive neutrinos, so astropy integrates numerically for every redshift;
+    for millions of catalogue galaxies interpolating a dense table is ~100x faster.  The grid is
+    uniform in log(1+z) with 200,001 nodes up to z = 3 and stores D_L/z, which is smooth at
+    z = 0; the relative interpolation error is below 1e-9.
+    """
+    x = np.linspace(0.0, np.log1p(_Z_MAX_TABLE), 200_001)
+    z = np.expm1(x)
+    q = np.empty_like(z)                     # D_L / z: smooth and finite (c/H0) at z = 0
+    q[1:] = Planck18.luminosity_distance(z[1:]).value / z[1:]
+    q[0] = 299792.458 / Planck18.H0.value
+    return x, q
+
+
 def _redshift_to_distance(z: np.ndarray) -> np.ndarray:
+    z = np.asarray(z, float)
     d = np.full(z.shape, np.nan)
     ok = np.isfinite(z) & (z > 0)
     if ok.any():
-        d[ok] = Planck18.luminosity_distance(z[ok]).value
+        zz = z[ok]
+        inside = zz <= _Z_MAX_TABLE
+        x, qt = _dl_table()
+        out = np.empty(zz.shape)
+        out[inside] = zz[inside] * np.interp(np.log1p(zz[inside]), x, qt)
+        if (~inside).any():
+            out[~inside] = Planck18.luminosity_distance(zz[~inside]).value
+        d[ok] = out
     return d
 
 
 def _ddl_dz(z: np.ndarray) -> np.ndarray:
-    """Numerical derivative of the luminosity distance with respect to redshift."""
-    h = 1e-5
-    zp = z + h
-    zm = np.maximum(z - h, 1e-9)
-    return (_redshift_to_distance(zp) - _redshift_to_distance(zm)) / (zp - zm)
+    """dD_L/dz for flat Planck18: D_L/(1+z) + (1+z) c/H(z)."""
+    z = np.asarray(z, float)
+    zc = np.maximum(z, 1e-9)
+    c_kms = 299792.458
+    return _redshift_to_distance(zc) / (1.0 + zc) + (1.0 + zc) * c_kms / Planck18.H(zc).value
 
 
 def resolve_distances(g: Galaxies, cfg: ResolvedConfig) -> tuple[np.ndarray, np.ndarray, list[set[str]]]:

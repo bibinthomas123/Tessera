@@ -476,9 +476,18 @@ def plan(
     meta_common = {"plan_key": plan_key, "strategy": cfg.strategy, "science_model": cfg.science_model,
                    "catalog": snap.describe(), "skymap_sha256": ident["skymap_sha256"]}
     outputs: dict[str, bytes] = {}
+    tbl_out = tbl
+    if len(tbl) > pcfg.max_output_galaxies:
+        # Distant events can put 10^6 catalogue galaxies in the region; writing them all as CSV,
+        # ECSV and JSON dominated planning time.  Files keep the top-ranked rows.
+        tbl_out = tbl[: pcfg.max_output_galaxies]
+        diags.add("GALAXY_OUTPUT_TRUNCATED",
+                  f"galaxies.* list the top {pcfg.max_output_galaxies:,} of {len(tbl):,} scored galaxies "
+                  f"({float(np.sum(tbl_out['score_fraction'])):.4f} of the total score)", level="info",
+                  n_scored=len(tbl), n_written=pcfg.max_output_galaxies)
     for fmt in ("csv", "ecsv", "json"):
-        outputs[f"galaxies.{fmt}"] = table_to_bytes(tbl, fmt, meta={**meta_common, "summary": assoc.summary,
-                                                                     "budget": budget})
+        outputs[f"galaxies.{fmt}"] = table_to_bytes(tbl_out, fmt, meta={**meta_common, "summary": assoc.summary,
+                                                                         "budget": budget})
     for key, ft in fields_out.items():
         for fmt in ("csv", "json"):
             outputs[f"fields/{key}.{fmt}"] = table_to_bytes(ft, fmt, meta={**meta_common, "profile": key})

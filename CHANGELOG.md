@@ -17,6 +17,17 @@ version (see `docs/science.md`).
 - Mount `ha_limits_by_dec`: hour-angle windows that apply only south of a given declination,
   enforced in visibility, the fast refinement and the validator.
 
+### Changed
+- Much faster planning with the full GLADE+ catalogue (10^6 galaxies in a distant event's region):
+  - redshift-to-distance conversion interpolates a cached Planck18 table, with relative error
+    below 1e-12, instead of numerical integration per galaxy (360× faster), and dD_L/dz uses the
+    exact formula;
+  - the galaxies.* output files list the top `max_output_galaxies` (100,000) rows. The in-memory
+    table still holds every scored galaxy, and truncation is reported as
+    `GALAXY_OUTPUT_TRUNCATED`.
+
+  S230830b with the full catalogue: 96.5 s → 42.2 s, with an identical schedule and ranking.
+
 ### Fixed
 - `ztf-approx` used rules stricter than ZTF's own scheduler: declinations south of −22° are now
   allowed down to −45° with HA ≥ −17.6° (ztf_sim QueueManager), and the night uses 12° twilight

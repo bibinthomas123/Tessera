@@ -75,6 +75,8 @@ class PlanConfig(BaseModel):
     t_merger: str | None = Field(None, description="ISO time of merger; default MJD-OBS of the map")
     coordination: Literal["independent", "sequential"] = "independent"
     compare_strategies: bool = True
+    max_output_galaxies: int = Field(100_000, ge=1, description="rows written to galaxies.* (the in-memory "
+                                                                 "table keeps every scored galaxy)")
     fields: FieldConfig = FieldConfig()
     scheduler: SchedulerConfig = SchedulerConfig()
 
