@@ -461,8 +461,24 @@ class GreedyScheduler:
             C = np.array([(c[10], c[11]) for c in cands])
             gains, scores = C[:, 0], C[:, 1]
             if np.max(gains) <= 0:
-                self._idled = self._idled or self._dark_between(t, self.t1)
-                break
+                # Nothing observable now has gain, but fields whose windows open later (or revisits
+                # that become due later) might: jump there instead of ending the night early.
+                # Coverage only changes when a visit is committed, so a field already open with zero
+                # gain stays at zero; only later window openings and revisit times need checking.
+                later = np.isin(self.w_f, rows_all) & (self.w_a > t + 1e-9)
+                nxt = [float(self.w_a[later].min())] if later.any() else []
+                dep = rows_all[step[rows_all] > 0]
+                if len(dep):
+                    rel = np.array([last_end[r] + pattern[step[r]].min_gap_min / 1440.0 for r in dep])
+                    rel = rel[rel > t + 1e-9]
+                    if len(rel):
+                        nxt.append(float(rel.min()))
+                tn = min(nxt) if nxt else np.inf
+                self._idled = self._idled or self._dark_between(t, tn if np.isfinite(tn) else self.t1)
+                if not np.isfinite(tn) or tn >= self.t1:
+                    break
+                t = max(tn, t + 60.0 / DAY)
+                continue
             best = float(np.max(scores))
             tol = (scores >= (1.0 - sc.urgency_tolerance) * best) & (gains > 0)
             wclose = np.array([self.w_b[c[8]] for c in cands])
