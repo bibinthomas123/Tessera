@@ -12,6 +12,9 @@ version (see `docs/science.md`).
   and left 7.9 dark hours unused; it now observes until 12:07, 54 → 365 visits, sky probability
   0.757 → 0.791, 89% → 93% of the MILP upper bound. In the 8-event comparison, 5 cases improve and
   none get worse. Found while measuring the gap to the upper bound.
+- `optimality.simple_upper_bound`: a provably valid upper bound for any number of fields (union of
+  observable coverage, and the N best single fields), reported by `greedy_vs_bound` next to the
+  MILP bound.
 - A start time the server could not parse (for example `2017-08-17 22:00 UTC`) caused an HTTP 500.
   Times now accept a space instead of `T`, missing seconds, and a trailing `Z` or `UTC`; anything
   else is rejected with HTTP 422 and code `INVALID_TIME`.

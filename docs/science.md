@@ -208,3 +208,16 @@ priority and the telescope does not sit idle once they are done (decision rule `
 `tessera.core.optimality` solves a MILP relaxation (time buckets, minimum gaps, capped coverage) whose
 optimum bounds every feasible schedule from above, so greedy / bound is a guaranteed lower bound on
 greedy / optimum. On GW170817 with the example 1 m profile it is ≥ 0.91.
+
+`simple_upper_bound` is a second, always-computable bound for regions too large for the MILP.
+No schedule can exceed the smaller of two quantities:
+
+* the union coverage of every field observable at some time in the horizon;
+* the sum of the N best single fields, where N is the most visits that fit in the observable
+  time.
+
+On wide-field telescopes it equals the MILP bound, because coverage is limited by what is
+observable. On small fields it is much looser (it ignores overlap and slews), so ratios against it
+understate how close the schedule is to optimal. `greedy_vs_bound` reports both. With the
+early-stop fix, greedy reaches 0.88–1.00 of the MILP bound on every case of the 8-event comparison
+where the MILP could be solved.
