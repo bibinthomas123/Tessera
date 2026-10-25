@@ -261,3 +261,14 @@ def test_to_time_accepts_common_utc_forms_and_rejects_others():
         with pytest.raises(ConfigError) as e:
             to_time(bad)
         assert e.value.code == "INVALID_TIME" and e.value.http_status == 422
+
+
+def test_ztf_profile_matches_published_camera():
+    from tessera.core.footprint import InstrumentFootprint
+    from tessera.core.profile import load_profile
+
+    p = load_profile("ztf-approx")
+    fp = InstrumentFootprint(p.instrument.footprint)
+    assert len(p.instrument.footprint.chips) == 16                 # 4 x 4 CCD mosaic
+    assert abs(fp.area_deg2 - 47.7) < 0.2                          # Bellm et al. 2019: 47 deg2 with gaps
+    assert p.mount.ha_limits_h == (-5.95, 5.95) and p.constraints.airmass_max == 2.5

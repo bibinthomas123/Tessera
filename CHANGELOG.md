@@ -5,6 +5,12 @@ version (see `docs/science.md`).
 
 ## [Unreleased]
 
+### Added
+- `ztf-approx` telescope profile built from published values: the 4 × 4 CCD mosaic with chip gaps
+  (Bellm et al. 2019), drive speeds (Dekany et al. 2020), and observing limits from ZTF's
+  scheduler. Planning with it is slower (S190425z: about 50 s) because each pointing is rasterised
+  as 16 chips.
+
 ### Fixed
 - The scheduler ended the night early when nothing observable *at that moment* had gain, even if
   fields rose later. It now jumps to the next window opening, or the next due revisit, and stops

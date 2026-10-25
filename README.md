@@ -125,7 +125,9 @@ unrelated project. The Python package and the command are both `tessera`. Option
 - **Test data is public.** It includes the GWTC-1 GW170817 sky map (LIGO DCC P1800381), the GraceDB
   BAYESTAR maps for S190425z and S200105ae, and a GLADE+ excerpt from VizieR VII/291 (Dalya et al.
   2022; please cite it). The AT2017gfo light curve is derived from Villar et al. 2017, Table 3.
-- **Telescope profiles** shipped here are illustrative or approximate, not facility-validated.
+- **Telescope profiles** shipped here are illustrative or approximate, not facility-validated:
+  `example-1m` and `example-wide-north` are illustrative; `rubin-lsstcam-approx` and `ztf-approx`
+  are built from published instrument parameters, with sources cited in each file.
 - **Science model 1.2.0.** The light curve, all reference densities (B-band, K-band, and stellar
   mass on the same GAMA/Chabrier scale as GLADE+ masses) and the kilonova diversity σ_M = 1.0 mag
   are sourced from the literature; see [docs/science.md](docs/science.md).

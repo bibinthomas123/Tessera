@@ -1,0 +1,59 @@
+# APPROXIMATE Zwicky Transient Facility (ZTF) profile, built from published values.
+# Not validated by ZTF; for planning studies and tool comparisons.
+#   Site: Palomar (gwemopt ZTF.config).
+#   Camera: 4 x 4 CCDs of 6144 (N-S) x 6160 (E-W) px at 1.01"/px, chip gaps 0.205 deg (N-S) and
+#     0.140 deg (E-W): Bellm et al. 2019, PASP 131, 018002, Table 1 (47.7 deg2).
+#   Drives: HA 2.5 deg/s, 0.4 deg/s2; Dec 3 deg/s, 0.5 deg/s2: Dekany et al. 2020, PASP 132,
+#     038001, Section 4.2.  Filter exchange 110 s: as in M4OPT's ZTF mission.
+#   Readout 10 s, settle 10 s, r = 20.4 (5 sigma) in 30 s: gwemopt ZTF.config.
+#   Constraints: airmass <= 2.5, astronomical twilight, Moon >= 25 deg, |HA| <= 5.95 h: ZTF's
+#     scheduler (ztf_sim QueueManager) as used by M4OPT.  ztf_sim's declination rules depend on
+#     hour angle; here they are simplified conservatively to Dec >= -22 deg.
+#   Extinction coefficient k_r = 0.11 is a typical Palomar value, not a ZTF measurement.
+schema: tessera.telescope/1
+id: ztf-approx
+version: 1
+description: "Approximate ZTF (47 deg2 mosaic with chip gaps) from published parameters (not ZTF-validated)"
+validation: {level: community, overheads: approximate, notes: "built from Bellm+2019, Dekany+2020, gwemopt and M4OPT values"}
+site: {name: "Palomar", lat_deg: 33.3563, lon_deg: -116.8648, elevation_m: 1742, timezone: America/Los_Angeles}
+mount: {type: equatorial, ha_limits_h: [-5.95, 5.95], dec_limits_deg: [-22, 87.5], park: {ha_h: 0, dec_deg: 33}}
+slew:
+  axes: simultaneous
+  axis1: {vmax_dps: 2.5, acc_dps2: 0.4}
+  axis2: {vmax_dps: 3.0, acc_dps2: 0.5}
+  settle_s: 10
+  acquisition_s: 0
+instrument:
+  name: "ZTF camera"
+  footprint:
+    kind: chips
+    pa_deg: [0]
+    chips:
+      - [[-3.6664, -3.755], [-1.9382, -3.755], [-1.9382, -2.0312], [-3.6664, -2.0312]]
+      - [[-1.7982, -3.755], [-0.07, -3.755], [-0.07, -2.0312], [-1.7982, -2.0312]]
+      - [[0.07, -3.755], [1.7982, -3.755], [1.7982, -2.0312], [0.07, -2.0312]]
+      - [[1.9382, -3.755], [3.6664, -3.755], [3.6664, -2.0312], [1.9382, -2.0312]]
+      - [[-3.6664, -1.8262], [-1.9382, -1.8262], [-1.9382, -0.1025], [-3.6664, -0.1025]]
+      - [[-1.7982, -1.8262], [-0.07, -1.8262], [-0.07, -0.1025], [-1.7982, -0.1025]]
+      - [[0.07, -1.8262], [1.7982, -1.8262], [1.7982, -0.1025], [0.07, -0.1025]]
+      - [[1.9382, -1.8262], [3.6664, -1.8262], [3.6664, -0.1025], [1.9382, -0.1025]]
+      - [[-3.6664, 0.1025], [-1.9382, 0.1025], [-1.9382, 1.8262], [-3.6664, 1.8262]]
+      - [[-1.7982, 0.1025], [-0.07, 0.1025], [-0.07, 1.8262], [-1.7982, 1.8262]]
+      - [[0.07, 0.1025], [1.7982, 0.1025], [1.7982, 1.8262], [0.07, 1.8262]]
+      - [[1.9382, 0.1025], [3.6664, 0.1025], [3.6664, 1.8262], [1.9382, 1.8262]]
+      - [[-3.6664, 2.0312], [-1.9382, 2.0312], [-1.9382, 3.755], [-3.6664, 3.755]]
+      - [[-1.7982, 2.0312], [-0.07, 2.0312], [-0.07, 3.755], [-1.7982, 3.755]]
+      - [[0.07, 2.0312], [1.7982, 2.0312], [1.7982, 3.755], [0.07, 3.755]]
+      - [[1.9382, 2.0312], [3.6664, 2.0312], [3.6664, 3.755], [1.9382, 3.755]]
+  readout_s: 10
+  filter_change_s: 110
+  filters:
+    r: {m_ref: 20.4, t_ref_s: 30, k_ext: 0.11}
+  exposure: {t_min_s: 30, t_max_s: 300, t_single_max_s: 300}
+constraints:
+  sun_alt_max_deg: -18
+  airmass_max: 2.5
+  moon_sep_min_deg: 25
+visit_pattern: [{filter: r}]
+adapters: [generic, treasuremap]
+submission_enabled: false
