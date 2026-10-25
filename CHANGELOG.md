@@ -11,6 +11,9 @@ version (see `docs/science.md`).
   scheduler. Planning with it is slower (S190425z: about 50 s) because each pointing is rasterised
   as 16 chips.
 
+- The GLADE+ reader also reads the full fixed-width CDS file `gladep.dat` from VizieR (VII/291,
+  23.2 million rows; about 3 minutes to convert), detected automatically.
+
 ### Fixed
 - The scheduler ended the night early when nothing observable *at that moment* had gain, even if
   fields rose later. It now jumps to the next window opening, or the next due revisit, and stops

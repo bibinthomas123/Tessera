@@ -1,8 +1,9 @@
 """GLADE+ (Dalya et al. 2022, MNRAS 514, 1403) -> canonical schema.
 
-Reads either the official whitespace-separated ``GLADE+.txt`` (40 columns,
-missing values written as ``null``) or a VizieR ``asu-tsv`` export of
-``VII/291/gladep``.  Flag semantics follow the VizieR ReadMe:
+Reads the official whitespace-separated ``GLADE+.txt`` (40 columns, missing
+values written as ``null``), a VizieR ``asu-tsv`` export of ``VII/291/gladep``,
+or the full fixed-width CDS file ``gladep.dat`` (VizieR FTP, 23.2 million rows,
+598-character records).  Flag semantics follow the VizieR ReadMe:
 
 * f_dL (dist flag): 0 no distance, 1 photo-z, 2 measured d_L (redshift
   independent), 3 spectroscopic z
@@ -156,9 +157,62 @@ def read_official(path: str | Path) -> dict[str, np.ndarray]:
     return {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
 
 
+# 1-based inclusive byte ranges from the VizieR ReadMe of VII/291 (file gladep.dat)
+CDS_RECORD = 598
+CDS_COLUMNS = {
+    "GLADE+": (1, 8), "PGC": (10, 16), "GWGC": (18, 45), "HyperLEDA": (47, 75), "2MASS": (77, 92),
+    "WISExSCOS": (94, 112), "SDSS-DR16Q": (114, 131), "Type": (133, 133), "RAJ2000": (135, 155),
+    "DEJ2000": (157, 179), "Bmag": (181, 198), "Kmag": (310, 327), "W1mag": (348, 365),
+    "zcmb": (449, 471), "f_zcmb": (473, 473), "e_zhelio": (498, 519), "dL": (521, 543),
+    "e_dL": (545, 564), "f_dL": (566, 566), "M*": (568, 577), "e_M*": (579, 587), "logRate": (591, 593),
+}
+
+
+def _is_cds(head: bytes) -> bool:
+    lines = head.split(b"\n")
+    return len(lines) > 1 and len(lines[0]) == CDS_RECORD and lines[0][:8].strip().isdigit()
+
+
+def iter_cds(path: str | Path, rows_per_chunk: int = 500_000) -> Iterator[dict[str, np.ndarray]]:
+    """Stream the fixed-width CDS ``gladep.dat`` in chunks, slicing the ReadMe byte columns."""
+    import pandas as pd
+
+    rec = CDS_RECORD + 1                       # + newline
+    with Path(path).open("rb") as fh:
+        while True:
+            buf = fh.read(rows_per_chunk * rec)
+            if not buf:
+                break
+            n = len(buf) // rec
+            if n == 0:
+                raise ValueError("truncated final record in CDS file")
+            if len(buf) % rec:
+                raise ValueError(f"CDS file is not a whole number of {rec}-byte records (incomplete download?)")
+            arr = np.frombuffer(buf, dtype="S1").reshape(n, rec)
+            t: dict[str, Any] = {}
+            for name, (a, b) in CDS_COLUMNS.items():
+                raw = np.ascontiguousarray(arr[:, a - 1:b]).view(f"S{b - a + 1}").ravel()
+                s = pd.Series(raw).str.decode("ascii").str.strip()
+                if name in _NUMERIC:
+                    t[name] = pd.to_numeric(s.where(s != "-"), errors="coerce").to_numpy(float)
+                else:
+                    t[name] = s.where(~s.isin(["", "-"]), None).to_numpy(object)
+            yield to_canonical(t)
+
+
+def read_cds(path: str | Path) -> dict[str, np.ndarray]:
+    parts = list(iter_cds(path))
+    if not parts:
+        raise ValueError("empty GLADE+ file")
+    return {k: np.concatenate([p[k] for p in parts]) for k in parts[0]}
+
+
 def read(path: str | Path) -> dict[str, np.ndarray]:
-    """Auto-detect official text vs VizieR TSV."""
-    head = Path(path).open("rb").read(4096).decode(errors="replace")
+    """Auto-detect official text, VizieR TSV, or the fixed-width CDS gladep.dat."""
+    raw = Path(path).open("rb").read(4096)
+    if _is_cds(raw):
+        return read_cds(path)
+    head = raw.decode(errors="replace")
     if head.startswith("#") or "\t" in head.splitlines()[0]:
         return read_vizier_tsv(path)
     return read_official(path)

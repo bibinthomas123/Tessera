@@ -11,7 +11,7 @@ from tessera.core.catalog import build_snapshot, find_duplicates, open_snapshot,
 from tessera.core.errors import AdapterError, CatalogError, ProfileError
 from tessera.core.profile import load_profile, parse_profile
 
-from ..conftest import GLADE_EXCERPT, GW170817_MAP, NGC4993, T_GW170817
+from ..conftest import DATA, GLADE_EXCERPT, GW170817_MAP, NGC4993, T_GW170817
 
 # -- catalog -------------------------------------------------------------------
 
@@ -272,3 +272,13 @@ def test_ztf_profile_matches_published_camera():
     assert len(p.instrument.footprint.chips) == 16                 # 4 x 4 CCD mosaic
     assert abs(fp.area_deg2 - 47.7) < 0.2                          # Bellm et al. 2019: 47 deg2 with gaps
     assert p.mount.ha_limits_h == (-5.95, 5.95) and p.constraints.airmass_max == 2.5
+
+
+def test_glade_plus_cds_fixed_width_reader():
+    from tessera.adapters.catalogs import glade_plus
+
+    c = glade_plus.read(DATA / "gladep_cds_sample.dat")     # first 3 records of VizieR VII/291 gladep.dat
+    assert len(c["ra"]) == 3
+    assert c["gal_id"][0] == "GLADE+:1" and "GWGC:NGC4736" in c["alt_ids"][0]
+    assert abs(c["ra"][0] - 192.721451) < 1e-6 and abs(c["dec"][0] - 41.120152) < 1e-6
+    assert abs(c["mag_B"][0] - 8.8) < 1e-9 and c["dist_kind"][0] == "specz"
